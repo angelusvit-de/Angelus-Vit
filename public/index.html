@@ -594,9 +594,9 @@
   // ---------------------------------------------------------------------
   let html5QrCode = null;
   let scannerStarting = false;
+  let stopPromise = null; // läuft gerade ein Schließvorgang?
 
   async function openScanner() {
-    // Doppeltes Starten verhindern (z. B. bei schnellem Tab-Wechsel)
     if (scannerStarting || html5QrCode) return;
     scannerStarting = true;
 
@@ -605,40 +605,43 @@
     overlay.style.display = 'flex';
     errorEl.textContent = '';
 
-    // Container sicherheitshalber leeren, falls ein alter Versuch Reste hinterlassen hat
-    document.getElementById('reader').innerHTML = '';
-
-    const config = {
-      fps: 8,
-      qrbox: { width: 280, height: 100 },
-      videoConstraints: {
-        facingMode: 'environment',
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      },
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E,
-        Html5QrcodeSupportedFormats.CODE_128
-      ]
-    };
-
     try {
-      html5QrCode = new Html5Qrcode('reader');
-      await html5QrCode.start(
-        { facingMode: 'environment' },
-        config,
-        onScanSuccess,
-        () => {}
-      );
+      // Warten, bis ein evtl. noch laufender Schließvorgang fertig ist –
+      // sonst ist die Kamera noch belegt und der Start schlägt fehl.
+      if (stopPromise) {
+        await stopPromise;
+        stopPromise = null;
+      }
+
+      document.getElementById('reader').innerHTML = '';
+
+      const config = {
+        fps: 8,
+        qrbox: { width: 280, height: 100 },
+        videoConstraints: {
+          facingMode: 'environment',
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128
+        ]
+      };
+
+      const instance = new Html5Qrcode('reader');
+      await instance.start({ facingMode: 'environment' }, config, onScanSuccess, () => {});
+      html5QrCode = instance;
     } catch (err) {
       console.error('Scanner-Start fehlgeschlagen:', err);
       errorEl.textContent =
         'Kamera konnte nicht gestartet werden: ' + (err?.message || err) +
-        ' – bitte Kamerazugriff erlauben oder manuell eingeben.';
+        ' – bitte manuell eingeben oder App neu laden.';
       html5QrCode = null;
+      releaseCameraTracks();
     } finally {
       scannerStarting = false;
     }
@@ -646,32 +649,51 @@
 
   function onScanSuccess(decodedText) {
     document.getElementById('input-barcode').value = decodedText;
-    closeScanner();
-    document.getElementById('input-charge').focus();
+    // Nicht direkt im Callback stoppen – das bringt die Bibliothek durcheinander.
+    setTimeout(() => {
+      closeScanner();
+      document.getElementById('input-charge').focus();
+    }, 0);
+  }
+
+  // Notfall-Freigabe: stoppt alle noch laufenden Kamera-Streams im Reader-Element.
+  function releaseCameraTracks() {
+    document.querySelectorAll('#reader video').forEach(video => {
+      const stream = video.srcObject;
+      if (stream && stream.getTracks) {
+        stream.getTracks().forEach(track => {
+          try { track.stop(); } catch (e) {}
+        });
+      }
+      video.srcObject = null;
+    });
+    document.getElementById('reader').innerHTML = '';
   }
 
   function closeScanner() {
-    // Overlay IMMER zuerst ausblenden – auch wenn das Stoppen scheitert,
-    // damit man nie im schwarzen Bildschirm festhängt.
+    // Overlay immer sofort ausblenden, damit man nie festhängt.
     document.getElementById('scanner-overlay').style.display = 'none';
 
     const instance = html5QrCode;
     html5QrCode = null;
-    if (!instance) return;
-
-    try {
-      const result = instance.stop();
-      if (result && typeof result.then === 'function') {
-        result
-          .then(() => {
-            try { instance.clear(); } catch (e) {}
-          })
-          .catch(() => {});
-      }
-    } catch (err) {
-      // Scanner lief gar nicht oder war schon gestoppt – ignorieren
+    if (!instance) {
+      releaseCameraTracks();
+      return;
     }
-    document.getElementById('reader').innerHTML = '';
+
+    // Erst stoppen, DANN aufräumen – und das Ergebnis merken, damit ein
+    // erneutes Öffnen darauf warten kann.
+    stopPromise = (async () => {
+      try {
+        await instance.stop();
+      } catch (e) {
+        // Scanner lief nicht oder war schon gestoppt
+      }
+      try {
+        instance.clear();
+      } catch (e) {}
+      releaseCameraTracks();
+    })();
   }
 
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
