@@ -452,7 +452,7 @@
       <button class="scanner-close" onclick="closeScanner()">✕</button>
     </div>
     <div id="reader"></div>
-    <p class="scanner-hint">Barcode mittig im Rahmen halten – gute Beleuchtung hilft.</p>
+    <p class="scanner-hint">Barcode waagerecht und flach halten, Handy ca. 10–15 cm entfernt, gute Beleuchtung, kurz stillhalten.</p>
     <div id="scanner-error" class="scanner-error"></div>
     <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
   </div>
@@ -599,8 +599,8 @@
     html5QrCode = new Html5Qrcode('reader');
 
     const config = {
-      fps: 10,
-      qrbox: { width: 260, height: 130 },
+      fps: 8,
+      qrbox: { width: 280, height: 100 },
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -611,7 +611,12 @@
     };
 
     html5QrCode
-      .start({ facingMode: 'environment' }, config, onScanSuccess, () => {})
+      .start(
+        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        config,
+        onScanSuccess,
+        () => {}
+      )
       .catch(err => {
         document.getElementById('scanner-error').textContent =
           'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff für diese Seite erlauben.';
@@ -722,6 +727,7 @@
         <p><strong>${name}</strong>, Charge ${charge}</p>
         <p>Gemeldeter Grund: ${r.reason || 'keine Angabe'}</p>
         <p>${r.title}</p>
+        ${data.trefferUeberChargeOhneNamen ? '<p style="font-size:12px; color:var(--muted);">Hinweis: Der Produktname war bei Open Food Facts nicht hinterlegt – dieser Treffer basiert ausschließlich auf der übereinstimmenden Chargennummer.</p>' : ''}
         <a class="clinic-btn" href="tel:+491234567890">Klinik anrufen</a>
         <div class="meta">Gemeldet am ${r.published ? new Date(r.published).toLocaleDateString('de-DE') : '–'} · Quelle: lebensmittelwarnung.de</div>
       </div>`;
@@ -747,7 +753,7 @@
       barcode,
       name,
       charge: charge || '–',
-      status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : 'unklar',
+      status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar',
       date: new Date().toLocaleDateString('de-DE')
     });
     renderProducts();
@@ -772,7 +778,7 @@
           body: JSON.stringify({ barcode: p.barcode, charge: p.charge === '–' ? '' : p.charge })
         });
         const data = await res.json();
-        const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : 'unklar';
+        const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar';
         if (p.status !== 'warn' && neuerStatus === 'warn') neueWarnungen++;
         p.status = neuerStatus;
       } catch (err) {
@@ -794,14 +800,14 @@
       return;
     }
     list.innerHTML = products.map(p => `
-      <div class="product-card ${p.status === 'unklar' ? '' : p.status}">
+      <div class="product-card ${p.status === 'safe' || p.status === 'warn' ? p.status : ''}">
         <div class="product-top">
           <div>
             <div class="product-name">${p.name}</div>
             <div class="product-meta">Charge ${p.charge} · geprüft am ${p.date}</div>
           </div>
-          <span class="badge ${p.status === 'unklar' ? 'neutral' : p.status}">
-            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : 'Unklar'}
+          <span class="badge ${p.status === 'safe' || p.status === 'warn' ? p.status : 'neutral'}">
+            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : p.status === 'unbekannt' ? 'Unbekannt' : 'Unklar'}
           </span>
         </div>
       </div>
