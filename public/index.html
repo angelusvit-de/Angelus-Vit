@@ -204,9 +204,14 @@
     border-radius: 50%;
     cursor: pointer;
   }
-  #scanner-video {
+  #video-container {
     flex: 1;
     background: #000;
+  }
+  #video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   .scanner-hint {
     text-align: center;
@@ -450,10 +455,11 @@
       <span>Barcode scannen</span>
       <button class="scanner-close" onclick="closeScanner()">✕</button>
     </div>
-    <video id="scanner-video" playsinline muted autoplay style="display:none; width:100%; height:100%; object-fit:cover; flex:1;"></video>
+    <div id="video-container" style="flex:1; background:#000; display:flex;"></div>
     <p class="scanner-hint">Barcode waagerecht und flach halten, Handy ca. 10–15 cm entfernt, gute Beleuchtung, kurz stillhalten.</p>
     <div id="scanner-error" class="scanner-error"></div>
     <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="decodeFromPhoto(event)">
+    <button class="scanner-manual-btn" onclick="restartScanner()">🔄 Kamera neu starten</button>
     <button class="scanner-manual-btn" onclick="document.getElementById('photo-input').click()">📸 Stattdessen Foto vom Barcode machen</button>
     <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
   </div>
@@ -621,11 +627,21 @@
 
     const overlay = document.getElementById('scanner-overlay');
     const errorEl = document.getElementById('scanner-error');
-    const video = document.getElementById('scanner-video');
+    const container = document.getElementById('video-container');
     overlay.style.display = 'flex';
     errorEl.textContent = '';
 
     try {
+      // Wichtig für iOS: bei JEDEM Öffnen ein frisches <video>-Element erzeugen.
+      // Ein wiederverwendetes Element blockiert auf iOS nach ein paar Durchläufen.
+      container.innerHTML = '';
+      const video = document.createElement('video');
+      video.setAttribute('playsinline', '');
+      video.setAttribute('muted', '');
+      video.setAttribute('autoplay', '');
+      video.muted = true;
+      container.appendChild(video);
+
       currentStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
@@ -636,7 +652,6 @@
       });
 
       video.srcObject = currentStream;
-      video.style.display = 'block';
       await video.play();
 
       codeReader = buildReader();
@@ -721,23 +736,53 @@
 
   function releaseCamera() {
     scanLoopActive = false;
-    const video = document.getElementById('scanner-video');
+
     if (currentStream) {
       currentStream.getTracks().forEach(t => {
         try { t.stop(); } catch (e) {}
       });
     }
     currentStream = null;
-    if (video) {
-      video.srcObject = null;
-      video.style.display = 'none';
+
+    // Video-Element vollständig abbauen (iOS gibt die Kamera sonst nicht frei)
+    const container = document.getElementById('video-container');
+    if (container) {
+      container.querySelectorAll('video').forEach(v => {
+        try {
+          v.pause();
+          v.srcObject = null;
+          v.removeAttribute('src');
+          v.load();
+        } catch (e) {}
+      });
+      container.innerHTML = '';
     }
+
     codeReader = null;
   }
+
+  // Sicherheitsnetz: Kamera freigeben, wenn die App in den Hintergrund geht
+  // oder die Seite verlassen wird.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && currentStream) closeScanner();
+  });
+  window.addEventListener('pagehide', () => {
+    if (currentStream) releaseCamera();
+  });
 
   function closeScanner() {
     document.getElementById('scanner-overlay').style.display = 'none';
     releaseCamera();
+  }
+
+  // Kamera hart neu starten (falls sie doch mal klemmt)
+  async function restartScanner() {
+    const errorEl = document.getElementById('scanner-error');
+    errorEl.textContent = 'Kamera wird neu gestartet …';
+    releaseCamera();
+    await new Promise(r => setTimeout(r, 400));
+    scannerStarting = false;
+    await openScanner();
   }
 
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
