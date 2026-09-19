@@ -475,6 +475,7 @@
 
       <label for="input-charge">Chargennummer (auf der Verpackung)</label>
       <input type="text" id="input-charge" placeholder="z. B. L2456A">
+      <p class="section-sub" style="margin-top:-8px;">Barcode oder Chargennummer reicht auch allein.</p>
 
       <button class="primary" onclick="checkProduct()">Prüfen</button>
 
@@ -689,7 +690,7 @@
     const charge = document.getElementById('input-charge').value.trim();
     const slot = document.getElementById('result-slot');
 
-    if (!barcode) {
+    if (!barcode && !charge) {
       slot.innerHTML = '';
       return;
     }
@@ -712,22 +713,17 @@
       return;
     }
 
-    const name = data.produkt?.name || 'Unbekanntes Produkt';
+    const name = data.produkt?.name || (data.treffer ? data.treffer.title : 'Unbekanntes Produkt');
     let html;
 
-    if (!data.produkt) {
-      html = `<div class="result">
-        <div class="result-head">Kein Eintrag gefunden</div>
-        <p>Dieser Barcode ist bei Open Food Facts nicht hinterlegt. Die Datenbank ist crowdsourced – nicht jedes Produkt ist erfasst.</p>
-      </div>`;
-    } else if (data.status === 'warn') {
+    if (data.status === 'warn') {
       const r = data.treffer;
       html = `<div class="result warn">
         <div class="result-head">Möglicher Treffer – Rückruf aktiv</div>
-        <p><strong>${name}</strong>, Charge ${charge}</p>
+        <p><strong>${name}</strong>${charge ? ', Charge ' + charge : ''}</p>
         <p>Gemeldeter Grund: ${r.reason || 'keine Angabe'}</p>
         <p>${r.title}</p>
-        ${data.trefferUeberChargeOhneNamen ? '<p style="font-size:12px; color:var(--muted);">Hinweis: Der Produktname war bei Open Food Facts nicht hinterlegt – dieser Treffer basiert ausschließlich auf der übereinstimmenden Chargennummer.</p>' : ''}
+        ${data.trefferUeberChargeOhneNamen ? '<p style="font-size:12px; color:var(--muted);">Hinweis: Der Produktname war bei Open Food Facts nicht hinterlegt (oder kein Barcode angegeben) – dieser Treffer basiert ausschließlich auf der übereinstimmenden Chargennummer.</p>' : ''}
         <a class="clinic-btn" href="tel:+491234567890">Klinik anrufen</a>
         <div class="meta">Gemeldet am ${r.published ? new Date(r.published).toLocaleDateString('de-DE') : '–'} · Quelle: lebensmittelwarnung.de</div>
       </div>`;
@@ -738,11 +734,16 @@
         <p>Es gibt Rückrufe mit ähnlichem Produktnamen, aber keiner nennt diese Chargennummer. Bitte Chargennummer noch einmal genau prüfen.</p>
         ${data.aehnlicheKandidaten.map(k => `<p style="font-size:12px; color:var(--muted);">– ${k.titel} (Ähnlichkeit ${Math.round(k.score*100)}%)</p>`).join('')}
       </div>`;
+    } else if (data.status === 'produkt_unbekannt') {
+      html = `<div class="result">
+        <div class="result-head">Kein Eintrag gefunden</div>
+        <p>Dieser Barcode ist bei Open Food Facts nicht hinterlegt${charge ? ' und die Chargennummer passt zu keinem aktuellen Rückruf' : ''}. Die Datenbank ist crowdsourced – nicht jedes Produkt ist erfasst.</p>
+      </div>`;
     } else {
       html = `<div class="result safe">
         <div class="result-head">Unbedenklich</div>
-        <p><strong>${name}</strong>${charge ? ', Charge ' + charge : ''}</p>
-        <p>Für dieses Produkt liegt aktuell kein passender Rückruf vor.</p>
+        <p>${barcode ? '<strong>' + name + '</strong>' : 'Diese Chargennummer'}${charge ? ', Charge ' + charge : ''}</p>
+        <p>Für ${barcode ? 'dieses Produkt' : 'diese Chargennummer'} liegt aktuell kein passender Rückruf vor.</p>
       </div>`;
     }
 
@@ -750,7 +751,7 @@
 
     products.unshift({
       id: nextId++,
-      barcode,
+      barcode: barcode || '–',
       name,
       charge: charge || '–',
       status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar',
@@ -775,7 +776,10 @@
         const res = await fetch(`${apiBase}/api/check`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ barcode: p.barcode, charge: p.charge === '–' ? '' : p.charge })
+          body: JSON.stringify({
+            barcode: p.barcode === '–' ? '' : p.barcode,
+            charge: p.charge === '–' ? '' : p.charge
+          })
         });
         const data = await res.json();
         const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar';
