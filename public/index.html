@@ -193,6 +193,7 @@
     padding: 18px 18px 12px;
     font-family: 'Lora', serif;
     font-size: 15px;
+    flex-shrink: 0;
   }
   .scanner-close {
     background: rgba(255,255,255,0.12);
@@ -205,13 +206,16 @@
     cursor: pointer;
   }
   #video-container {
-    flex: 1;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
     background: #000;
   }
   #video-container video {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
   }
   .scanner-hint {
     text-align: center;
@@ -219,25 +223,29 @@
     color: rgba(255,255,255,0.72);
     padding: 12px 24px 4px;
     margin: 0;
+    flex-shrink: 0;
   }
   .scanner-error {
     text-align: center;
     font-size: 12px;
     color: #F3B3A3;
-    padding: 4px 24px 16px;
+    padding: 4px 24px 8px;
     min-height: 14px;
+    flex-shrink: 0;
   }
   .scanner-manual-btn {
-    margin: 4px 24px 24px;
-    padding: 9px;
+    margin: 0 24px 10px;
+    padding: 11px;
     background: transparent;
     border: 1px solid rgba(255,255,255,0.4);
     color: #fff;
     border-radius: 7px;
-    font-size: 12.5px;
+    font-size: 13px;
     cursor: pointer;
     font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
   }
+  .scanner-manual-btn:last-of-type { margin-bottom: 22px; }
   .pagination {
     display: flex;
     align-items: center;
@@ -603,7 +611,6 @@
   // ---------------------------------------------------------------------
   let codeReader = null;
   let currentStream = null;
-  let scanLoopActive = false;
   let scannerStarting = false;
 
   function buildReader() {
@@ -638,25 +645,32 @@
       const video = document.createElement('video');
       video.setAttribute('playsinline', '');
       video.setAttribute('muted', '');
-      video.setAttribute('autoplay', '');
       video.muted = true;
       container.appendChild(video);
 
-      currentStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        },
-        audio: false
-      });
-
-      video.srcObject = currentStream;
-      await video.play();
-
       codeReader = buildReader();
-      scanLoopActive = true;
-      scanLoop(video);
+
+      // ZXing übernimmt Kamera-Zugriff UND die fortlaufende Erkennung.
+      await codeReader.decodeFromConstraints(
+        {
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        },
+        video,
+        (result, err) => {
+          if (result) {
+            const text = result.getText();
+            if (text) onScanSuccess(text);
+          }
+          // err bei jedem Frame ohne Barcode – das ist normal, ignorieren
+        }
+      );
+
+      currentStream = video.srcObject;
     } catch (err) {
       console.error('Kamera-Start fehlgeschlagen:', err);
       errorEl.textContent =
@@ -667,34 +681,6 @@
     }
   }
 
-  // Liest fortlaufend Einzelbilder aus dem Video und versucht sie zu dekodieren.
-  async function scanLoop(video) {
-    while (scanLoopActive && currentStream) {
-      const text = tryDecodeVideoFrame(video);
-      if (text) {
-        onScanSuccess(text);
-        return;
-      }
-      await new Promise(r => setTimeout(r, 150));
-    }
-  }
-
-  // Zeichnet das aktuelle Videobild auf ein Canvas und lässt ZXing darauf suchen.
-  const scanCanvas = document.createElement('canvas');
-  function tryDecodeVideoFrame(video) {
-    if (!video.videoWidth) return null;
-    scanCanvas.width = video.videoWidth;
-    scanCanvas.height = video.videoHeight;
-    const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
-    try {
-      const result = codeReader.decodeFromCanvas(scanCanvas);
-      return result ? result.getText() : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
   // Fallback: Foto mit der nativen Kamera aufnehmen und daraus dekodieren.
   async function decodeFromPhoto(event) {
     const file = event.target.files && event.target.files[0];
@@ -702,8 +688,8 @@
     const errorEl = document.getElementById('scanner-error');
     errorEl.textContent = 'Foto wird ausgewertet …';
 
+    const url = URL.createObjectURL(file);
     try {
-      const url = URL.createObjectURL(file);
       const img = new Image();
       await new Promise((resolve, reject) => {
         img.onload = resolve;
@@ -712,10 +698,9 @@
       });
 
       const reader = buildReader();
-      const result = reader.decodeFromImageElement(img);
-      URL.revokeObjectURL(url);
-
+      const result = await reader.decodeFromImageElement(img);
       const text = result && result.getText ? result.getText() : null;
+
       if (text) {
         onScanSuccess(text);
       } else {
@@ -724,6 +709,7 @@
     } catch (err) {
       errorEl.textContent = 'Kein Barcode im Foto erkannt – bitte näher heran und erneut versuchen.';
     } finally {
+      URL.revokeObjectURL(url);
       event.target.value = '';
     }
   }
@@ -735,7 +721,12 @@
   }
 
   function releaseCamera() {
-    scanLoopActive = false;
+
+    // ZXing anweisen, Erkennung und Kamera zu beenden
+    if (codeReader) {
+      try { codeReader.reset(); } catch (e) {}
+    }
+    codeReader = null;
 
     if (currentStream) {
       currentStream.getTracks().forEach(t => {
@@ -749,6 +740,8 @@
     if (container) {
       container.querySelectorAll('video').forEach(v => {
         try {
+          const s = v.srcObject;
+          if (s && s.getTracks) s.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
           v.pause();
           v.srcObject = null;
           v.removeAttribute('src');
@@ -757,8 +750,6 @@
       });
       container.innerHTML = '';
     }
-
-    codeReader = null;
   }
 
   // Sicherheitsnetz: Kamera freigeben, wenn die App in den Hintergrund geht
