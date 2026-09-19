@@ -470,6 +470,7 @@
       <p class="section-sub">Live geladen von lebensmittelwarnung.de (offizielle Rückruf-Feeds von Bund und Ländern).</p>
       <div id="recalls-updated" class="backend-status"></div>
       <div id="recalls-list"></div>
+      <button id="load-more-recalls" class="button-secondary" style="display:none;" onclick="loadMoreRecalls()">Weitere 10 laden</button>
     </div>
 
     <!-- GUIDE VIEW -->
@@ -775,12 +776,19 @@
   }
 
   // ---------------------------------------------------------------------
-  // Alle Rückrufe (GET /api/recalls)
+  // Alle Rückrufe (GET /api/recalls) – seitenweise, 10 pro Ladevorgang
   // ---------------------------------------------------------------------
+  const RECALLS_PAGE_SIZE = 10;
+  let allRecalls = [];
+  let recallsShown = 0;
+
   async function loadRecalls() {
     const list = document.getElementById('recalls-list');
     const updatedEl = document.getElementById('recalls-updated');
+    const loadMoreBtn = document.getElementById('load-more-recalls');
     list.innerHTML = '<div class="loading-hint">Lade aktuelle Rückrufe …</div>';
+    loadMoreBtn.style.display = 'none';
+
     try {
       const res = await fetch(`${apiBase}/api/recalls`);
       const data = await res.json();
@@ -789,27 +797,52 @@
         : '';
       updatedEl.className = 'backend-status ok';
 
-      if (!data.recalls.length) {
+      allRecalls = data.recalls || [];
+      recallsShown = 0;
+      list.innerHTML = '';
+
+      if (!allRecalls.length) {
         list.innerHTML = '<div class="empty-state">Aktuell keine laufenden Lebensmittel-Rückrufe.</div>';
         return;
       }
-      list.innerHTML = data.recalls.map(r => `
-        <div class="product-card warn">
-          <div class="product-top">
-            <div>
-              <div class="product-name">${r.title}</div>
-              <div class="product-meta">${r.lotNumbers ? 'Charge(n) ' + r.lotNumbers + ' · ' : ''}${r.published ? new Date(r.published).toLocaleDateString('de-DE') : ''}</div>
-            </div>
-            <span class="badge warn">Rückruf</span>
-          </div>
-          <p style="margin:10px 0 0; font-size:12.5px; line-height:1.5;">${r.reason || ''}</p>
-        </div>
-      `).join('');
+      renderNextRecallsBatch();
     } catch (err) {
       updatedEl.className = 'backend-status error';
       updatedEl.textContent = 'Backend nicht erreichbar.';
       list.innerHTML = '';
     }
+  }
+
+  function renderNextRecallsBatch() {
+    const list = document.getElementById('recalls-list');
+    const loadMoreBtn = document.getElementById('load-more-recalls');
+    const nextBatch = allRecalls.slice(recallsShown, recallsShown + RECALLS_PAGE_SIZE);
+
+    list.insertAdjacentHTML('beforeend', nextBatch.map(r => `
+      <div class="product-card warn">
+        <div class="product-top">
+          <div>
+            <div class="product-name">${r.title}</div>
+            <div class="product-meta">${r.lotNumbers ? 'Charge(n) ' + r.lotNumbers + ' · ' : ''}${r.published ? new Date(r.published).toLocaleDateString('de-DE') : ''}</div>
+          </div>
+          <span class="badge warn">Rückruf</span>
+        </div>
+        <p style="margin:10px 0 0; font-size:12.5px; line-height:1.5;">${r.reason || ''}</p>
+      </div>
+    `).join(''));
+
+    recallsShown += nextBatch.length;
+
+    if (recallsShown < allRecalls.length) {
+      loadMoreBtn.textContent = `Weitere 10 laden (${allRecalls.length - recallsShown} übrig)`;
+      loadMoreBtn.style.display = 'block';
+    } else {
+      loadMoreBtn.style.display = 'none';
+    }
+  }
+
+  function loadMoreRecalls() {
+    renderNextRecallsBatch();
   }
 
   function showBanner(text, muted) {
