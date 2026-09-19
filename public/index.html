@@ -53,6 +53,7 @@
     display: flex;
     flex-direction: column;
     min-height: 720px;
+    position: relative;
   }
 
   header {
@@ -160,6 +161,68 @@
     font-family: 'Inter', sans-serif;
   }
   button.primary:hover { background: var(--primary-dark); }
+
+  .button-secondary {
+    width: 100%;
+    padding: 11px;
+    background: #fff;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 14px;
+    font-family: 'Inter', sans-serif;
+  }
+  .button-secondary:hover { background: var(--bg); }
+
+  .scanner-overlay {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    background: #0B1716;
+    z-index: 50;
+    color: #fff;
+  }
+  .scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 18px 12px;
+    font-family: 'Lora', serif;
+    font-size: 15px;
+  }
+  .scanner-close {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  #reader {
+    flex: 1;
+    background: #000;
+  }
+  #reader video { object-fit: cover; }
+  .scanner-hint {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.72);
+    padding: 12px 24px 4px;
+    margin: 0;
+  }
+  .scanner-error {
+    text-align: center;
+    font-size: 12px;
+    color: #F3B3A3;
+    padding: 4px 24px 16px;
+    min-height: 14px;
+  }
 
   .result {
     margin-top: 18px;
@@ -344,6 +407,16 @@
 
   <div id="banner"></div>
 
+  <div class="scanner-overlay" id="scanner-overlay">
+    <div class="scanner-header">
+      <span>Barcode scannen</span>
+      <button class="scanner-close" onclick="closeScanner()">✕</button>
+    </div>
+    <div id="reader"></div>
+    <p class="scanner-hint">Barcode mittig im Rahmen halten – gute Beleuchtung hilft.</p>
+    <div id="scanner-error" class="scanner-error"></div>
+  </div>
+
   <main>
     <!-- SCAN VIEW -->
     <div class="view active" id="view-scan">
@@ -356,6 +429,7 @@
 
       <label for="input-barcode">Barcode (EAN, von der Verpackung)</label>
       <input type="text" id="input-barcode" placeholder="z. B. 4311501867658">
+      <button type="button" class="button-secondary" onclick="openScanner()">📷 Kamera zum Scannen öffnen</button>
 
       <label for="input-charge">Chargennummer (auf der Verpackung)</label>
       <input type="text" id="input-charge" placeholder="z. B. L2456A">
@@ -465,7 +539,55 @@
   </nav>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
+  // ---------------------------------------------------------------------
+  // Kamera-Scanner (html5-qrcode)
+  // ---------------------------------------------------------------------
+  let html5QrCode = null;
+
+  function openScanner() {
+    document.getElementById('scanner-overlay').style.display = 'flex';
+    document.getElementById('scanner-error').textContent = '';
+    html5QrCode = new Html5Qrcode('reader');
+
+    const config = {
+      fps: 10,
+      qrbox: { width: 260, height: 130 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128
+      ]
+    };
+
+    html5QrCode
+      .start({ facingMode: 'environment' }, config, onScanSuccess, () => {})
+      .catch(err => {
+        document.getElementById('scanner-error').textContent =
+          'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff für diese Seite erlauben.';
+        console.error(err);
+      });
+  }
+
+  function onScanSuccess(decodedText) {
+    document.getElementById('input-barcode').value = decodedText;
+    closeScanner();
+    document.getElementById('input-charge').focus();
+  }
+
+  function closeScanner() {
+    if (html5QrCode) {
+      html5QrCode
+        .stop()
+        .then(() => html5QrCode.clear())
+        .catch(() => {});
+    }
+    document.getElementById('scanner-overlay').style.display = 'none';
+  }
+
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
   // aufgerufen), automatisch dessen Adresse als Backend-Adresse übernehmen –
   // sonst (lokale Datei geöffnet) bei "http://localhost:3001" bleiben.
