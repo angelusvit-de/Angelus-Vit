@@ -204,11 +204,10 @@
     border-radius: 50%;
     cursor: pointer;
   }
-  #reader {
+  #scanner-video {
     flex: 1;
     background: #000;
   }
-  #reader video { object-fit: cover; }
   .scanner-hint {
     text-align: center;
     font-size: 12px;
@@ -451,9 +450,11 @@
       <span>Barcode scannen</span>
       <button class="scanner-close" onclick="closeScanner()">✕</button>
     </div>
-    <div id="reader"></div>
+    <video id="scanner-video" playsinline muted autoplay style="display:none; width:100%; height:100%; object-fit:cover; flex:1;"></video>
     <p class="scanner-hint">Barcode waagerecht und flach halten, Handy ca. 10–15 cm entfernt, gute Beleuchtung, kurz stillhalten.</p>
     <div id="scanner-error" class="scanner-error"></div>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="decodeFromPhoto(event)">
+    <button class="scanner-manual-btn" onclick="document.getElementById('photo-input').click()">📸 Stattdessen Foto vom Barcode machen</button>
     <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
   </div>
 
@@ -587,113 +588,156 @@
   </nav>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 <script>
   // ---------------------------------------------------------------------
-  // Kamera-Scanner (html5-qrcode)
+  // Kamera-Scanner (ZXing – speziell stark bei 1D-Barcodes wie EAN)
+  // Der Kamera-Stream wird bewusst selbst verwaltet, damit er beim Schließen
+  // garantiert freigegeben wird (sonst startet die Kamera beim 2. Mal nicht).
   // ---------------------------------------------------------------------
-  let html5QrCode = null;
+  let codeReader = null;
+  let currentStream = null;
+  let scanLoopActive = false;
   let scannerStarting = false;
-  let stopPromise = null; // läuft gerade ein Schließvorgang?
+
+  function buildReader() {
+    const hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.UPC_A,
+      ZXing.BarcodeFormat.UPC_E,
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.ITF
+    ]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    return new ZXing.BrowserMultiFormatReader(hints, 200);
+  }
 
   async function openScanner() {
-    if (scannerStarting || html5QrCode) return;
+    if (scannerStarting || currentStream) return;
     scannerStarting = true;
 
     const overlay = document.getElementById('scanner-overlay');
     const errorEl = document.getElementById('scanner-error');
+    const video = document.getElementById('scanner-video');
     overlay.style.display = 'flex';
     errorEl.textContent = '';
 
     try {
-      // Warten, bis ein evtl. noch laufender Schließvorgang fertig ist –
-      // sonst ist die Kamera noch belegt und der Start schlägt fehl.
-      if (stopPromise) {
-        await stopPromise;
-        stopPromise = null;
-      }
-
-      document.getElementById('reader').innerHTML = '';
-
-      const config = {
-        fps: 8,
-        qrbox: { width: 280, height: 100 },
-        videoConstraints: {
-          facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_128
-        ]
-      };
+        audio: false
+      });
 
-      const instance = new Html5Qrcode('reader');
-      await instance.start({ facingMode: 'environment' }, config, onScanSuccess, () => {});
-      html5QrCode = instance;
+      video.srcObject = currentStream;
+      video.style.display = 'block';
+      await video.play();
+
+      codeReader = buildReader();
+      scanLoopActive = true;
+      scanLoop(video);
     } catch (err) {
-      console.error('Scanner-Start fehlgeschlagen:', err);
+      console.error('Kamera-Start fehlgeschlagen:', err);
       errorEl.textContent =
-        'Kamera konnte nicht gestartet werden: ' + (err?.message || err) +
-        ' – bitte manuell eingeben oder App neu laden.';
-      html5QrCode = null;
-      releaseCameraTracks();
+        'Kamera nicht verfügbar (' + (err?.name || 'Fehler') + '). Nutze das Foto darunter oder gib manuell ein.';
+      releaseCamera();
     } finally {
       scannerStarting = false;
     }
   }
 
-  function onScanSuccess(decodedText) {
-    document.getElementById('input-barcode').value = decodedText;
-    // Nicht direkt im Callback stoppen – das bringt die Bibliothek durcheinander.
-    setTimeout(() => {
-      closeScanner();
-      document.getElementById('input-charge').focus();
-    }, 0);
+  // Liest fortlaufend Einzelbilder aus dem Video und versucht sie zu dekodieren.
+  async function scanLoop(video) {
+    while (scanLoopActive && currentStream) {
+      const text = tryDecodeVideoFrame(video);
+      if (text) {
+        onScanSuccess(text);
+        return;
+      }
+      await new Promise(r => setTimeout(r, 150));
+    }
   }
 
-  // Notfall-Freigabe: stoppt alle noch laufenden Kamera-Streams im Reader-Element.
-  function releaseCameraTracks() {
-    document.querySelectorAll('#reader video').forEach(video => {
-      const stream = video.srcObject;
-      if (stream && stream.getTracks) {
-        stream.getTracks().forEach(track => {
-          try { track.stop(); } catch (e) {}
-        });
+  // Zeichnet das aktuelle Videobild auf ein Canvas und lässt ZXing darauf suchen.
+  const scanCanvas = document.createElement('canvas');
+  function tryDecodeVideoFrame(video) {
+    if (!video.videoWidth) return null;
+    scanCanvas.width = video.videoWidth;
+    scanCanvas.height = video.videoHeight;
+    const ctx = scanCanvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, 0, 0, scanCanvas.width, scanCanvas.height);
+    try {
+      const result = codeReader.decodeFromCanvas(scanCanvas);
+      return result ? result.getText() : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Fallback: Foto mit der nativen Kamera aufnehmen und daraus dekodieren.
+  async function decodeFromPhoto(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const errorEl = document.getElementById('scanner-error');
+    errorEl.textContent = 'Foto wird ausgewertet …';
+
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
+
+      const reader = buildReader();
+      const result = reader.decodeFromImageElement(img);
+      URL.revokeObjectURL(url);
+
+      const text = result && result.getText ? result.getText() : null;
+      if (text) {
+        onScanSuccess(text);
+      } else {
+        errorEl.textContent = 'Kein Barcode im Foto erkannt – bitte näher heran und erneut versuchen.';
       }
+    } catch (err) {
+      errorEl.textContent = 'Kein Barcode im Foto erkannt – bitte näher heran und erneut versuchen.';
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  function onScanSuccess(decodedText) {
+    document.getElementById('input-barcode').value = decodedText;
+    closeScanner();
+    document.getElementById('input-charge').focus();
+  }
+
+  function releaseCamera() {
+    scanLoopActive = false;
+    const video = document.getElementById('scanner-video');
+    if (currentStream) {
+      currentStream.getTracks().forEach(t => {
+        try { t.stop(); } catch (e) {}
+      });
+    }
+    currentStream = null;
+    if (video) {
       video.srcObject = null;
-    });
-    document.getElementById('reader').innerHTML = '';
+      video.style.display = 'none';
+    }
+    codeReader = null;
   }
 
   function closeScanner() {
-    // Overlay immer sofort ausblenden, damit man nie festhängt.
     document.getElementById('scanner-overlay').style.display = 'none';
-
-    const instance = html5QrCode;
-    html5QrCode = null;
-    if (!instance) {
-      releaseCameraTracks();
-      return;
-    }
-
-    // Erst stoppen, DANN aufräumen – und das Ergebnis merken, damit ein
-    // erneutes Öffnen darauf warten kann.
-    stopPromise = (async () => {
-      try {
-        await instance.stop();
-      } catch (e) {
-        // Scanner lief nicht oder war schon gestoppt
-      }
-      try {
-        instance.clear();
-      } catch (e) {}
-      releaseCameraTracks();
-    })();
+    releaseCamera();
   }
 
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
