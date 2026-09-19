@@ -234,6 +234,33 @@
     cursor: pointer;
     font-family: 'Inter', sans-serif;
   }
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .page-btn {
+    padding: 9px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-size: 12.5px;
+    color: var(--primary-dark);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--primary); }
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .page-indicator {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
   .scanner-manual-btn:hover { background: rgba(255,255,255,0.08); }
 
   .result {
@@ -436,9 +463,11 @@
       <h2 class="section-title">Produkt prüfen</h2>
       <p class="section-sub">Barcode und Chargennummer eingeben. Der Abgleich läuft live gegen Open Food Facts und die aktuellen Rückrufe von lebensmittelwarnung.de.</p>
 
-      <label for="input-backend">Backend-Adresse</label>
-      <input type="text" id="input-backend" value="http://localhost:3001" onchange="onBackendChange()">
-      <div id="backend-status" class="backend-status">wird geprüft …</div>
+      <div style="display:none;">
+        <label for="input-backend">Backend-Adresse</label>
+        <input type="text" id="input-backend" value="http://localhost:3001" onchange="onBackendChange()">
+        <div id="backend-status" class="backend-status">wird geprüft …</div>
+      </div>
 
       <label for="input-barcode">Barcode (EAN, von der Verpackung)</label>
       <input type="text" id="input-barcode" placeholder="z. B. 4311501867658">
@@ -470,7 +499,11 @@
       <p class="section-sub">Live geladen von lebensmittelwarnung.de (offizielle Rückruf-Feeds von Bund und Ländern).</p>
       <div id="recalls-updated" class="backend-status"></div>
       <div id="recalls-list"></div>
-      <button id="load-more-recalls" class="button-secondary" style="display:none;" onclick="loadMoreRecalls()">Weitere 10 laden</button>
+      <div class="pagination" id="recalls-pagination" style="display:none;">
+        <button class="page-btn" id="recalls-prev" onclick="goToRecallsPage(currentRecallsPage - 1)">‹ Zurück</button>
+        <span class="page-indicator" id="recalls-page-indicator">Seite 1 von 1</span>
+        <button class="page-btn" id="recalls-next" onclick="goToRecallsPage(currentRecallsPage + 1)">Weiter ›</button>
+      </div>
     </div>
 
     <!-- GUIDE VIEW -->
@@ -776,18 +809,18 @@
   }
 
   // ---------------------------------------------------------------------
-  // Alle Rückrufe (GET /api/recalls) – seitenweise, 10 pro Ladevorgang
+  // Alle Rückrufe (GET /api/recalls) – Seitenprinzip, 10 pro Seite
   // ---------------------------------------------------------------------
   const RECALLS_PAGE_SIZE = 10;
   let allRecalls = [];
-  let recallsShown = 0;
+  let currentRecallsPage = 1;
 
   async function loadRecalls() {
     const list = document.getElementById('recalls-list');
     const updatedEl = document.getElementById('recalls-updated');
-    const loadMoreBtn = document.getElementById('load-more-recalls');
+    const pagination = document.getElementById('recalls-pagination');
     list.innerHTML = '<div class="loading-hint">Lade aktuelle Rückrufe …</div>';
-    loadMoreBtn.style.display = 'none';
+    pagination.style.display = 'none';
 
     try {
       const res = await fetch(`${apiBase}/api/recalls`);
@@ -798,14 +831,12 @@
       updatedEl.className = 'backend-status ok';
 
       allRecalls = data.recalls || [];
-      recallsShown = 0;
-      list.innerHTML = '';
 
       if (!allRecalls.length) {
         list.innerHTML = '<div class="empty-state">Aktuell keine laufenden Lebensmittel-Rückrufe.</div>';
         return;
       }
-      renderNextRecallsBatch();
+      renderRecallsPage(1);
     } catch (err) {
       updatedEl.className = 'backend-status error';
       updatedEl.textContent = 'Backend nicht erreichbar.';
@@ -813,12 +844,16 @@
     }
   }
 
-  function renderNextRecallsBatch() {
+  function renderRecallsPage(page) {
     const list = document.getElementById('recalls-list');
-    const loadMoreBtn = document.getElementById('load-more-recalls');
-    const nextBatch = allRecalls.slice(recallsShown, recallsShown + RECALLS_PAGE_SIZE);
+    const pagination = document.getElementById('recalls-pagination');
+    const totalPages = Math.max(1, Math.ceil(allRecalls.length / RECALLS_PAGE_SIZE));
 
-    list.insertAdjacentHTML('beforeend', nextBatch.map(r => `
+    currentRecallsPage = Math.min(Math.max(1, page), totalPages);
+    const start = (currentRecallsPage - 1) * RECALLS_PAGE_SIZE;
+    const items = allRecalls.slice(start, start + RECALLS_PAGE_SIZE);
+
+    list.innerHTML = items.map(r => `
       <div class="product-card warn">
         <div class="product-top">
           <div>
@@ -829,20 +864,16 @@
         </div>
         <p style="margin:10px 0 0; font-size:12.5px; line-height:1.5;">${r.reason || ''}</p>
       </div>
-    `).join(''));
+    `).join('');
 
-    recallsShown += nextBatch.length;
-
-    if (recallsShown < allRecalls.length) {
-      loadMoreBtn.textContent = `Weitere 10 laden (${allRecalls.length - recallsShown} übrig)`;
-      loadMoreBtn.style.display = 'block';
-    } else {
-      loadMoreBtn.style.display = 'none';
-    }
+    document.getElementById('recalls-page-indicator').textContent = `Seite ${currentRecallsPage} von ${totalPages}`;
+    document.getElementById('recalls-prev').disabled = currentRecallsPage <= 1;
+    document.getElementById('recalls-next').disabled = currentRecallsPage >= totalPages;
+    pagination.style.display = totalPages > 1 ? 'flex' : 'none';
   }
 
-  function loadMoreRecalls() {
-    renderNextRecallsBatch();
+  function goToRecallsPage(page) {
+    renderRecallsPage(page);
   }
 
   function showBanner(text, muted) {
