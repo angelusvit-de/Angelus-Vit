@@ -611,6 +611,11 @@
     const config = {
       fps: 8,
       qrbox: { width: 280, height: 100 },
+      videoConstraints: {
+        facingMode: 'environment',
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      },
       formatsToSupport: [
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
@@ -623,7 +628,7 @@
     try {
       html5QrCode = new Html5Qrcode('reader');
       await html5QrCode.start(
-        { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        { facingMode: 'environment' },
         config,
         onScanSuccess,
         () => {}
@@ -631,7 +636,8 @@
     } catch (err) {
       console.error('Scanner-Start fehlgeschlagen:', err);
       errorEl.textContent =
-        'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff erlauben oder manuell eingeben.';
+        'Kamera konnte nicht gestartet werden: ' + (err?.message || err) +
+        ' – bitte Kamerazugriff erlauben oder manuell eingeben.';
       html5QrCode = null;
     } finally {
       scannerStarting = false;
