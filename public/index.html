@@ -223,6 +223,18 @@
     padding: 4px 24px 16px;
     min-height: 14px;
   }
+  .scanner-manual-btn {
+    margin: 4px 24px 24px;
+    padding: 9px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    border-radius: 7px;
+    font-size: 12.5px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .scanner-manual-btn:hover { background: rgba(255,255,255,0.08); }
 
   .result {
     margin-top: 18px;
@@ -415,6 +427,7 @@
     <div id="reader"></div>
     <p class="scanner-hint">Barcode mittig im Rahmen halten – gute Beleuchtung hilft.</p>
     <div id="scanner-error" class="scanner-error"></div>
+    <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
   </div>
 
   <main>
@@ -818,6 +831,12 @@
     document.getElementById('tab-recalls').classList.toggle('active', name === 'recalls');
     document.getElementById('tab-guide').classList.toggle('active', name === 'guide');
     if (name === 'recalls') loadRecalls();
+
+    if (name === 'scan') {
+      openScanner();
+    } else {
+      closeScanner();
+    }
   }
 
   renderProducts();
