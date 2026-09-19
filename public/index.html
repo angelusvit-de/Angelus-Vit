@@ -593,11 +593,20 @@
   // Kamera-Scanner (html5-qrcode)
   // ---------------------------------------------------------------------
   let html5QrCode = null;
+  let scannerStarting = false;
 
-  function openScanner() {
-    document.getElementById('scanner-overlay').style.display = 'flex';
-    document.getElementById('scanner-error').textContent = '';
-    html5QrCode = new Html5Qrcode('reader');
+  async function openScanner() {
+    // Doppeltes Starten verhindern (z. B. bei schnellem Tab-Wechsel)
+    if (scannerStarting || html5QrCode) return;
+    scannerStarting = true;
+
+    const overlay = document.getElementById('scanner-overlay');
+    const errorEl = document.getElementById('scanner-error');
+    overlay.style.display = 'flex';
+    errorEl.textContent = '';
+
+    // Container sicherheitshalber leeren, falls ein alter Versuch Reste hinterlassen hat
+    document.getElementById('reader').innerHTML = '';
 
     const config = {
       fps: 8,
@@ -611,18 +620,22 @@
       ]
     };
 
-    html5QrCode
-      .start(
+    try {
+      html5QrCode = new Html5Qrcode('reader');
+      await html5QrCode.start(
         { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
         config,
         onScanSuccess,
         () => {}
-      )
-      .catch(err => {
-        document.getElementById('scanner-error').textContent =
-          'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff für diese Seite erlauben.';
-        console.error(err);
-      });
+      );
+    } catch (err) {
+      console.error('Scanner-Start fehlgeschlagen:', err);
+      errorEl.textContent =
+        'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff erlauben oder manuell eingeben.';
+      html5QrCode = null;
+    } finally {
+      scannerStarting = false;
+    }
   }
 
   function onScanSuccess(decodedText) {
@@ -632,13 +645,27 @@
   }
 
   function closeScanner() {
-    if (html5QrCode) {
-      html5QrCode
-        .stop()
-        .then(() => html5QrCode.clear())
-        .catch(() => {});
-    }
+    // Overlay IMMER zuerst ausblenden – auch wenn das Stoppen scheitert,
+    // damit man nie im schwarzen Bildschirm festhängt.
     document.getElementById('scanner-overlay').style.display = 'none';
+
+    const instance = html5QrCode;
+    html5QrCode = null;
+    if (!instance) return;
+
+    try {
+      const result = instance.stop();
+      if (result && typeof result.then === 'function') {
+        result
+          .then(() => {
+            try { instance.clear(); } catch (e) {}
+          })
+          .catch(() => {});
+      }
+    } catch (err) {
+      // Scanner lief gar nicht oder war schon gestoppt – ignorieren
+    }
+    document.getElementById('reader').innerHTML = '';
   }
 
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
@@ -916,6 +943,7 @@
   renderProducts();
   checkBackend();
   loadRecalls();
+  document.getElementById('scanner-overlay').style.display = 'none';
 </script>
 
 </body>
