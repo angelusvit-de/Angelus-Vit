@@ -161,11 +161,29 @@ app.post('/api/check', async (req, res) => {
       )
     : null;
 
+  // Zusätzlicher, vom Produktnamen unabhängiger Abgleich: manchmal ist der
+  // Barcode bei Open Food Facts nicht hinterlegt, die Chargennummer im
+  // Rückruf ist aber trotzdem eindeutig genug, um das Produkt zu finden.
+  const directChargeMatch = !chargeMatch && charge
+    ? recallCache.find(r =>
+        (r.lotNumbers || '').toLowerCase().includes(String(charge).trim().toLowerCase())
+      )
+    : null;
+
+  const treffer = chargeMatch ? chargeMatch.recall : directChargeMatch || null;
+
   res.json({
     barcode,
     produkt: product,
-    status: chargeMatch ? 'warn' : candidates.length ? 'moeglicher_treffer' : 'kein_rueckruf_gefunden',
-    treffer: chargeMatch ? chargeMatch.recall : null,
+    status: treffer
+      ? 'warn'
+      : candidates.length
+        ? 'moeglicher_treffer'
+        : product
+          ? 'kein_rueckruf_gefunden'
+          : 'produkt_unbekannt',
+    treffer,
+    trefferUeberChargeOhneNamen: !!directChargeMatch,
     aehnlicheKandidaten: candidates.slice(0, 3).map(c => ({
       titel: c.recall.title,
       grund: c.recall.reason,
