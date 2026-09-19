@@ -602,30 +602,37 @@
   </nav>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script type="module">
+  // Stärkere Erkennungs-Engine: ZXing-C++ als WebAssembly, eingebunden über
+  // die BarcodeDetector-Polyfill. Deutlich treffsicherer bei 1D-Barcodes (EAN)
+  // als die reine JavaScript-Portierung.
+  import { BarcodeDetector } from "https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js";
+  window.__BarcodeDetector = BarcodeDetector;
+  window.dispatchEvent(new Event('barcode-engine-ready'));
+</script>
 <script>
   // ---------------------------------------------------------------------
-  // Kamera-Scanner (ZXing – speziell stark bei 1D-Barcodes wie EAN)
-  // Der Kamera-Stream wird bewusst selbst verwaltet, damit er beim Schließen
-  // garantiert freigegeben wird (sonst startet die Kamera beim 2. Mal nicht).
+  // Kamera-Scanner
+  // Kamera-Stream wird bewusst selbst verwaltet und das <video>-Element bei
+  // jedem Öffnen neu erzeugt – sonst blockiert iOS nach ein paar Durchläufen.
   // ---------------------------------------------------------------------
-  let codeReader = null;
+  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
+
   let currentStream = null;
+  let scanning = false;
   let scannerStarting = false;
 
-  function buildReader() {
-    const hints = new Map();
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-      ZXing.BarcodeFormat.EAN_13,
-      ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.UPC_A,
-      ZXing.BarcodeFormat.UPC_E,
-      ZXing.BarcodeFormat.CODE_128,
-      ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.ITF
-    ]);
-    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-    return new ZXing.BrowserMultiFormatReader(hints, 200);
+  function getDetectorClass() {
+    return window.BarcodeDetector || window.__BarcodeDetector || null;
+  }
+
+  async function waitForEngine(timeoutMs = 8000) {
+    if (getDetectorClass()) return true;
+    return new Promise(resolve => {
+      const done = () => resolve(!!getDetectorClass());
+      window.addEventListener('barcode-engine-ready', done, { once: true });
+      setTimeout(done, timeoutMs);
+    });
   }
 
   async function openScanner() {
@@ -636,48 +643,61 @@
     const errorEl = document.getElementById('scanner-error');
     const container = document.getElementById('video-container');
     overlay.style.display = 'flex';
-    errorEl.textContent = '';
+    errorEl.textContent = 'Kamera wird gestartet …';
 
     try {
+      const ready = await waitForEngine();
+      if (!ready) throw new Error('Erkennungs-Engine konnte nicht geladen werden');
+
       // Wichtig für iOS: bei JEDEM Öffnen ein frisches <video>-Element erzeugen.
-      // Ein wiederverwendetes Element blockiert auf iOS nach ein paar Durchläufen.
       container.innerHTML = '';
       const video = document.createElement('video');
       video.setAttribute('playsinline', '');
-      video.setAttribute('muted', '');
       video.muted = true;
       container.appendChild(video);
 
-      codeReader = buildReader();
-
-      // ZXing übernimmt Kamera-Zugriff UND die fortlaufende Erkennung.
-      await codeReader.decodeFromConstraints(
-        {
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         },
-        video,
-        (result, err) => {
-          if (result) {
-            const text = result.getText();
-            if (text) onScanSuccess(text);
-          }
-          // err bei jedem Frame ohne Barcode – das ist normal, ignorieren
-        }
-      );
+        audio: false
+      });
 
-      currentStream = video.srcObject;
+      video.srcObject = currentStream;
+      await video.play();
+
+      errorEl.textContent = '';
+      scanning = true;
+      runDetectionLoop(video);
     } catch (err) {
       console.error('Kamera-Start fehlgeschlagen:', err);
       errorEl.textContent =
-        'Kamera nicht verfügbar (' + (err?.name || 'Fehler') + '). Nutze das Foto darunter oder gib manuell ein.';
+        'Kamera nicht verfügbar (' + (err?.name || err?.message || 'Fehler') + '). Foto-Button nutzen oder manuell eingeben.';
       releaseCamera();
     } finally {
       scannerStarting = false;
+    }
+  }
+
+  async function runDetectionLoop(video) {
+    const Detector = getDetectorClass();
+    const detector = new Detector({ formats: BARCODE_FORMATS });
+
+    while (scanning && currentStream) {
+      try {
+        if (video.readyState >= 2) {
+          const codes = await detector.detect(video);
+          if (codes && codes.length && codes[0].rawValue) {
+            onScanSuccess(codes[0].rawValue);
+            return;
+          }
+        }
+      } catch (e) {
+        // Einzelbild nicht auswertbar – weiter versuchen
+      }
+      await new Promise(r => setTimeout(r, 120));
     }
   }
 
@@ -688,28 +708,25 @@
     const errorEl = document.getElementById('scanner-error');
     errorEl.textContent = 'Foto wird ausgewertet …';
 
-    const url = URL.createObjectURL(file);
     try {
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = url;
-      });
+      const ready = await waitForEngine();
+      if (!ready) throw new Error('Engine nicht geladen');
 
-      const reader = buildReader();
-      const result = await reader.decodeFromImageElement(img);
-      const text = result && result.getText ? result.getText() : null;
+      const bitmap = await createImageBitmap(file);
+      const Detector = getDetectorClass();
+      const detector = new Detector({ formats: BARCODE_FORMATS });
+      const codes = await detector.detect(bitmap);
+      if (bitmap.close) bitmap.close();
 
-      if (text) {
-        onScanSuccess(text);
+      if (codes && codes.length && codes[0].rawValue) {
+        onScanSuccess(codes[0].rawValue);
       } else {
-        errorEl.textContent = 'Kein Barcode im Foto erkannt – bitte näher heran und erneut versuchen.';
+        errorEl.textContent = 'Kein Barcode im Foto erkannt – Barcode formatfüllend und scharf fotografieren.';
       }
     } catch (err) {
-      errorEl.textContent = 'Kein Barcode im Foto erkannt – bitte näher heran und erneut versuchen.';
+      console.error('Foto-Auswertung fehlgeschlagen:', err);
+      errorEl.textContent = 'Foto konnte nicht ausgewertet werden (' + (err?.message || 'Fehler') + ').';
     } finally {
-      URL.revokeObjectURL(url);
       event.target.value = '';
     }
   }
@@ -721,12 +738,7 @@
   }
 
   function releaseCamera() {
-
-    // ZXing anweisen, Erkennung und Kamera zu beenden
-    if (codeReader) {
-      try { codeReader.reset(); } catch (e) {}
-    }
-    codeReader = null;
+    scanning = false;
 
     if (currentStream) {
       currentStream.getTracks().forEach(t => {
