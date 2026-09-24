@@ -11,6 +11,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import webpush from 'web-push';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
@@ -38,6 +39,34 @@ const SIMILARITY_THRESHOLD = 0.45; // Prototyp-Schwellenwert – mit echten Date
 
 let recallCache = [];
 let lastRefresh = null;
+
+// ---------------------------------------------------------------------------
+// Speicher (bewusst einfach: nur im Arbeitsspeicher).
+// ACHTUNG: Bei jedem Neustart/Deploy des Servers sind diese Daten weg.
+// Für echte Nutzer später durch eine richtige Datenbank ersetzen.
+// ---------------------------------------------------------------------------
+const purchases = [];      // { id, deviceId, barcode, name, charge, status, date, notified[] }
+const subscriptions = {};  // deviceId -> Push-Abo des Browsers
+const testRecalls = [];    // manuell zu Testzwecken erzeugte "Rückrufe"
+let purchaseId = 1;
+
+// VAPID-Schlüssel: weisen den Server gegenüber Apple/Google als Absender aus.
+// Werden beim Start erzeugt, sofern nicht als Umgebungsvariablen gesetzt.
+let vapidKeys;
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  vapidKeys = {
+    publicKey: process.env.VAPID_PUBLIC_KEY,
+    privateKey: process.env.VAPID_PRIVATE_KEY
+  };
+} else {
+  vapidKeys = webpush.generateVAPIDKeys();
+  console.log('[push] Neue VAPID-Schlüssel erzeugt (bei Neustart ändern sie sich).');
+}
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || 'mailto:kontakt@example.com',
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
 let lastRefreshError = null;
 
 // ---------------------------------------------------------------------------
@@ -58,10 +87,20 @@ async function refreshRecalls() {
       ],
       { maxBuffer: 1024 * 1024 * 20 }
     );
+    const vorher = new Set(recallCache.map(r => r.id || r.title));
     recallCache = JSON.parse(stdout);
     lastRefresh = new Date().toISOString();
     lastRefreshError = null;
     console.log(`[recalls] ${recallCache.length} aktuelle Meldungen geladen (${lastRefresh})`);
+
+    // Nur wirklich NEUE Meldungen gegen gespeicherte Einkäufe prüfen
+    if (vorher.size > 0) {
+      const neue = recallCache.filter(r => !vorher.has(r.id || r.title));
+      if (neue.length) {
+        const versendet = await matchPurchasesAgainstRecalls(neue);
+        console.log(`[push] ${neue.length} neue Meldungen, ${versendet} Benachrichtigungen versendet`);
+      }
+    }
   } catch (err) {
     lastRefreshError = err.message;
     console.error('[recalls] Aktualisierung fehlgeschlagen:', err.message);
@@ -126,7 +165,18 @@ app.get('/api/status', (req, res) => {
 });
 
 app.get('/api/recalls', (req, res) => {
-  res.json({ updated: lastRefresh, count: recallCache.length, recalls: recallCache });
+  const alle = [...testRecalls, ...recallCache];
+  res.json({ updated: lastRefresh, count: alle.length, recalls: alle });
+});
+
+// Diagnose: zeigt die Rohdaten der ersten Meldungen inkl. aller Feldnamen.
+// Hilft zu prüfen, in welchem Feld die Chargennummer tatsächlich steht.
+app.get('/api/debug', (req, res) => {
+  res.json({
+    anzahl: recallCache.length,
+    feldnamen: recallCache.length ? Object.keys(recallCache[0]) : [],
+    beispiele: recallCache.slice(0, 3)
+  });
 });
 
 app.get('/api/lookup', async (req, res) => {
@@ -141,47 +191,65 @@ app.get('/api/lookup', async (req, res) => {
   }
 });
 
-app.post('/api/check', async (req, res) => {
-  const { barcode, charge } = req.body || {};
-  if (!barcode) return res.status(400).json({ error: 'Feld "barcode" fehlt' });
+// ---------------------------------------------------------------------------
+// Sucht eine Chargennummer in ALLEN Textfeldern einer Rückrufmeldung.
+// Grund: je nach Datenquelle steht die Charge mal in einem eigenen Feld,
+// mal nur im Fließtext der Meldung.
+// ---------------------------------------------------------------------------
+function recallContainsCharge(recall, charge) {
+  const needle = charge.toLowerCase().trim();
+  if (needle.length < 3) return false; // zu kurz → zu viele Zufallstreffer
+  const haystack = JSON.stringify(recall).toLowerCase();
+  return haystack.includes(needle);
+}
 
-  const product = await lookupBarcode(barcode).catch(() => null);
+app.post('/api/check', async (req, res) => {
+  const barcode = req.body?.barcode ? String(req.body.barcode).trim() : '';
+  const charge = req.body?.charge ? String(req.body.charge).trim() : '';
+
+  if (!barcode && !charge) {
+    return res.status(400).json({ error: 'Bitte Barcode oder Chargennummer angeben' });
+  }
+
+  const product = barcode ? await lookupBarcode(barcode).catch(() => null) : null;
   const productName = product?.name || null;
 
+  // Test-Rückrufe mit einbeziehen, damit der simulierte Fall auch beim
+  // normalen Prüfen gefunden wird.
+  const alleRueckrufe = [...testRecalls, ...recallCache];
+
   const candidates = productName
-    ? recallCache
+    ? alleRueckrufe
         .map(r => ({ recall: r, score: similarity(productName, r.title) }))
         .filter(c => c.score >= SIMILARITY_THRESHOLD)
         .sort((a, b) => b.score - a.score)
     : [];
 
   const chargeMatch = charge
-    ? candidates.find(c =>
-        (c.recall.lotNumbers || '').toLowerCase().includes(String(charge).trim().toLowerCase())
-      )
+    ? candidates.find(c => recallContainsCharge(c.recall, charge))
     : null;
 
   // Zusätzlicher, vom Produktnamen unabhängiger Abgleich: manchmal ist der
-  // Barcode bei Open Food Facts nicht hinterlegt, die Chargennummer im
-  // Rückruf ist aber trotzdem eindeutig genug, um das Produkt zu finden.
+  // Barcode bei Open Food Facts nicht hinterlegt (oder gar keiner angegeben),
+  // die Chargennummer im Rückruf ist aber trotzdem eindeutig genug, um das
+  // Produkt zu finden.
   const directChargeMatch = !chargeMatch && charge
-    ? recallCache.find(r =>
-        (r.lotNumbers || '').toLowerCase().includes(String(charge).trim().toLowerCase())
-      )
+    ? alleRueckrufe.find(r => recallContainsCharge(r, charge))
     : null;
 
   const treffer = chargeMatch ? chargeMatch.recall : directChargeMatch || null;
 
   res.json({
-    barcode,
+    barcode: barcode || null,
+    charge: charge || null,
     produkt: product,
     status: treffer
       ? 'warn'
       : candidates.length
         ? 'moeglicher_treffer'
-        : product
-          ? 'kein_rueckruf_gefunden'
-          : 'produkt_unbekannt',
+        : barcode && !product
+          ? 'produkt_unbekannt'
+          : 'kein_rueckruf_gefunden',
     treffer,
     trefferUeberChargeOhneNamen: !!directChargeMatch,
     aehnlicheKandidaten: candidates.slice(0, 3).map(c => ({
@@ -192,6 +260,166 @@ app.post('/api/check', async (req, res) => {
     }))
   });
 });
+
+// ---------------------------------------------------------------------------
+// Push-Benachrichtigungen
+// ---------------------------------------------------------------------------
+
+// Öffentlichen Schlüssel abholen (braucht der Browser zum Abonnieren)
+app.get('/api/push/key', (req, res) => {
+  res.json({ publicKey: vapidKeys.publicKey });
+});
+
+// Browser meldet sein Push-Abo an
+app.post('/api/push/subscribe', (req, res) => {
+  const { deviceId, subscription } = req.body || {};
+  if (!deviceId || !subscription) {
+    return res.status(400).json({ error: 'deviceId und subscription erforderlich' });
+  }
+  subscriptions[deviceId] = subscription;
+  console.log(`[push] Abo gespeichert für Gerät ${deviceId}`);
+  res.json({ ok: true });
+});
+
+// Testnachricht direkt schicken
+app.post('/api/push/test', async (req, res) => {
+  const { deviceId } = req.body || {};
+  const sub = subscriptions[deviceId];
+  if (!sub) return res.status(404).json({ error: 'Kein Push-Abo für dieses Gerät' });
+  try {
+    await sendPush(deviceId, {
+      title: 'Angelus Vit',
+      body: 'Testbenachrichtigung – Push funktioniert.'
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function sendPush(deviceId, payload) {
+  const sub = subscriptions[deviceId];
+  if (!sub) return false;
+  try {
+    await webpush.sendNotification(sub, JSON.stringify(payload));
+    return true;
+  } catch (err) {
+    console.error(`[push] Versand an ${deviceId} fehlgeschlagen:`, err.statusCode || err.message);
+    // Abgelaufene Abos entfernen
+    if (err.statusCode === 404 || err.statusCode === 410) delete subscriptions[deviceId];
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Gespeicherte Einkäufe
+// ---------------------------------------------------------------------------
+
+app.get('/api/purchases', (req, res) => {
+  const deviceId = req.query.deviceId;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId fehlt' });
+  res.json({ purchases: purchases.filter(p => p.deviceId === deviceId) });
+});
+
+app.post('/api/purchases', (req, res) => {
+  const { deviceId, barcode, name, charge, status } = req.body || {};
+  if (!deviceId) return res.status(400).json({ error: 'deviceId fehlt' });
+
+  const entry = {
+    id: purchaseId++,
+    deviceId,
+    barcode: barcode || '',
+    name: name || 'Unbekanntes Produkt',
+    charge: charge || '',
+    status: status || 'unklar',
+    date: new Date().toISOString(),
+    notified: []
+  };
+  purchases.push(entry);
+  res.json({ ok: true, purchase: entry });
+});
+
+app.post('/api/purchases/delete', (req, res) => {
+  const { deviceId, id } = req.body || {};
+  const idx = purchases.findIndex(p => p.id === id && p.deviceId === deviceId);
+  if (idx >= 0) purchases.splice(idx, 1);
+  res.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// TEST-FUNKTION (nur für den Prototyp!)
+// Erklärt ein bereits gespeichertes Produkt zum Rückruf und löst damit
+// den kompletten Benachrichtigungs-Ablauf aus.
+// ---------------------------------------------------------------------------
+app.post('/api/test/recall', async (req, res) => {
+  const { deviceId, purchaseId: pid, grund, verzoegerungSekunden } = req.body || {};
+  const purchase = purchases.find(p => p.id === pid && p.deviceId === deviceId);
+  if (!purchase) return res.status(404).json({ error: 'Einkauf nicht gefunden' });
+
+  const fakeRecall = {
+    id: 'TEST-' + Date.now(),
+    title: purchase.name,
+    reason: grund || 'TESTFALL – Kontamination (simuliert, kein echter Rückruf)',
+    lotNumbers: purchase.charge || '',
+    barcode: purchase.barcode || '',
+    published: new Date().toISOString(),
+    istTestfall: true
+  };
+
+  const delaySek = Number(verzoegerungSekunden) || 0;
+
+  if (delaySek > 0) {
+    // Verzögert auslösen, damit die Benachrichtigung ankommt, während
+    // die App bereits geschlossen ist.
+    setTimeout(async () => {
+      testRecalls.unshift(fakeRecall);
+      const versendet = await matchPurchasesAgainstRecalls([fakeRecall]);
+      console.log(`[test] Verzögerter Testrückruf ausgelöst, ${versendet} Benachrichtigung(en) versendet`);
+    }, delaySek * 1000);
+
+    return res.json({ ok: true, recall: fakeRecall, verzoegertUm: delaySek });
+  }
+
+  testRecalls.unshift(fakeRecall);
+  const versendet = await matchPurchasesAgainstRecalls([fakeRecall]);
+  res.json({ ok: true, recall: fakeRecall, benachrichtigungenVersendet: versendet });
+});
+
+// ---------------------------------------------------------------------------
+// Abgleich: neue Rückrufe gegen gespeicherte Einkäufe → Push verschicken
+// ---------------------------------------------------------------------------
+async function matchPurchasesAgainstRecalls(newRecalls) {
+  let count = 0;
+
+  for (const purchase of purchases) {
+    for (const recall of newRecalls) {
+      const recallId = recall.id || recall.title;
+      if (purchase.notified.includes(recallId)) continue; // schon gemeldet
+
+      const chargeTreffer =
+        purchase.charge && recallContainsCharge(recall, purchase.charge);
+      const barcodeTreffer =
+        purchase.barcode && recall.barcode && purchase.barcode === recall.barcode;
+      const nameTreffer =
+        purchase.name &&
+        recall.title &&
+        similarity(purchase.name, recall.title) >= SIMILARITY_THRESHOLD;
+
+      if (!chargeTreffer && !barcodeTreffer && !nameTreffer) continue;
+
+      purchase.status = 'warn';
+      purchase.notified.push(recallId);
+
+      const ok = await sendPush(purchase.deviceId, {
+        title: recall.istTestfall ? 'TEST: Rückruf für dein Produkt' : 'Rückruf für dein Produkt',
+        body: `${purchase.name}${purchase.charge ? ' (Charge ' + purchase.charge + ')' : ''}: ${recall.reason || 'Rückruf gemeldet'}`,
+        url: '/'
+      });
+      if (ok) count++;
+    }
+  }
+  return count;
+}
 
 app.listen(PORT, async () => {
   console.log(`Angelus-Vit-Backend läuft auf http://localhost:${PORT}`);
