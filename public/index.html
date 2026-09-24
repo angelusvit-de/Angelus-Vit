@@ -193,7 +193,6 @@
     padding: 18px 18px 12px;
     font-family: 'Lora', serif;
     font-size: 15px;
-    flex-shrink: 0;
   }
   .scanner-close {
     background: rgba(255,255,255,0.12);
@@ -205,47 +204,36 @@
     border-radius: 50%;
     cursor: pointer;
   }
-  #video-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
+  #reader {
+    flex: 1;
     background: #000;
   }
-  #video-container video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+  #reader video { object-fit: cover; }
   .scanner-hint {
     text-align: center;
     font-size: 12px;
     color: rgba(255,255,255,0.72);
     padding: 12px 24px 4px;
     margin: 0;
-    flex-shrink: 0;
   }
   .scanner-error {
     text-align: center;
     font-size: 12px;
     color: #F3B3A3;
-    padding: 4px 24px 8px;
+    padding: 4px 24px 16px;
     min-height: 14px;
-    flex-shrink: 0;
   }
   .scanner-manual-btn {
-    margin: 0 24px 10px;
-    padding: 11px;
+    margin: 4px 24px 24px;
+    padding: 9px;
     background: transparent;
     border: 1px solid rgba(255,255,255,0.4);
     color: #fff;
     border-radius: 7px;
-    font-size: 13px;
+    font-size: 12.5px;
     cursor: pointer;
     font-family: 'Inter', sans-serif;
-    flex-shrink: 0;
   }
-  .scanner-manual-btn:last-of-type { margin-bottom: 22px; }
   .pagination {
     display: flex;
     align-items: center;
@@ -463,12 +451,9 @@
       <span>Barcode scannen</span>
       <button class="scanner-close" onclick="closeScanner()">✕</button>
     </div>
-    <div id="video-container" style="flex:1; background:#000; display:flex;"></div>
-    <p class="scanner-hint">Barcode waagerecht und flach halten, Handy ca. 10–15 cm entfernt, gute Beleuchtung, kurz stillhalten.</p>
+    <div id="reader"></div>
+    <p class="scanner-hint">Barcode mittig im Rahmen halten – gute Beleuchtung hilft.</p>
     <div id="scanner-error" class="scanner-error"></div>
-    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="decodeFromPhoto(event)">
-    <button class="scanner-manual-btn" onclick="restartScanner()">🔄 Kamera neu starten</button>
-    <button class="scanner-manual-btn" onclick="document.getElementById('photo-input').click()">📸 Stattdessen Foto vom Barcode machen</button>
     <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
   </div>
 
@@ -490,7 +475,6 @@
 
       <label for="input-charge">Chargennummer (auf der Verpackung)</label>
       <input type="text" id="input-charge" placeholder="z. B. L2456A">
-      <p class="section-sub" style="margin-top:-8px;">Barcode oder Chargennummer reicht auch allein.</p>
 
       <button class="primary" onclick="checkProduct()">Prüfen</button>
 
@@ -602,133 +586,37 @@
   </nav>
 </div>
 
-<script type="module">
-  // Stärkere Erkennungs-Engine: ZXing-C++ als WebAssembly, eingebunden über
-  // die BarcodeDetector-Polyfill. Deutlich treffsicherer bei 1D-Barcodes (EAN)
-  // als die reine JavaScript-Portierung.
-  import { BarcodeDetector } from "https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js";
-  window.__BarcodeDetector = BarcodeDetector;
-  window.dispatchEvent(new Event('barcode-engine-ready'));
-</script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
   // ---------------------------------------------------------------------
-  // Kamera-Scanner
-  // Kamera-Stream wird bewusst selbst verwaltet und das <video>-Element bei
-  // jedem Öffnen neu erzeugt – sonst blockiert iOS nach ein paar Durchläufen.
+  // Kamera-Scanner (html5-qrcode)
   // ---------------------------------------------------------------------
-  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
+  let html5QrCode = null;
 
-  let currentStream = null;
-  let scanning = false;
-  let scannerStarting = false;
+  function openScanner() {
+    document.getElementById('scanner-overlay').style.display = 'flex';
+    document.getElementById('scanner-error').textContent = '';
+    html5QrCode = new Html5Qrcode('reader');
 
-  function getDetectorClass() {
-    return window.BarcodeDetector || window.__BarcodeDetector || null;
-  }
+    const config = {
+      fps: 10,
+      qrbox: { width: 260, height: 130 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128
+      ]
+    };
 
-  async function waitForEngine(timeoutMs = 8000) {
-    if (getDetectorClass()) return true;
-    return new Promise(resolve => {
-      const done = () => resolve(!!getDetectorClass());
-      window.addEventListener('barcode-engine-ready', done, { once: true });
-      setTimeout(done, timeoutMs);
-    });
-  }
-
-  async function openScanner() {
-    if (scannerStarting || currentStream) return;
-    scannerStarting = true;
-
-    const overlay = document.getElementById('scanner-overlay');
-    const errorEl = document.getElementById('scanner-error');
-    const container = document.getElementById('video-container');
-    overlay.style.display = 'flex';
-    errorEl.textContent = 'Kamera wird gestartet …';
-
-    try {
-      const ready = await waitForEngine();
-      if (!ready) throw new Error('Erkennungs-Engine konnte nicht geladen werden');
-
-      // Wichtig für iOS: bei JEDEM Öffnen ein frisches <video>-Element erzeugen.
-      container.innerHTML = '';
-      const video = document.createElement('video');
-      video.setAttribute('playsinline', '');
-      video.muted = true;
-      container.appendChild(video);
-
-      currentStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: false
+    html5QrCode
+      .start({ facingMode: 'environment' }, config, onScanSuccess, () => {})
+      .catch(err => {
+        document.getElementById('scanner-error').textContent =
+          'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff für diese Seite erlauben.';
+        console.error(err);
       });
-
-      video.srcObject = currentStream;
-      await video.play();
-
-      errorEl.textContent = '';
-      scanning = true;
-      runDetectionLoop(video);
-    } catch (err) {
-      console.error('Kamera-Start fehlgeschlagen:', err);
-      errorEl.textContent =
-        'Kamera nicht verfügbar (' + (err?.name || err?.message || 'Fehler') + '). Foto-Button nutzen oder manuell eingeben.';
-      releaseCamera();
-    } finally {
-      scannerStarting = false;
-    }
-  }
-
-  async function runDetectionLoop(video) {
-    const Detector = getDetectorClass();
-    const detector = new Detector({ formats: BARCODE_FORMATS });
-
-    while (scanning && currentStream) {
-      try {
-        if (video.readyState >= 2) {
-          const codes = await detector.detect(video);
-          if (codes && codes.length && codes[0].rawValue) {
-            onScanSuccess(codes[0].rawValue);
-            return;
-          }
-        }
-      } catch (e) {
-        // Einzelbild nicht auswertbar – weiter versuchen
-      }
-      await new Promise(r => setTimeout(r, 120));
-    }
-  }
-
-  // Fallback: Foto mit der nativen Kamera aufnehmen und daraus dekodieren.
-  async function decodeFromPhoto(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const errorEl = document.getElementById('scanner-error');
-    errorEl.textContent = 'Foto wird ausgewertet …';
-
-    try {
-      const ready = await waitForEngine();
-      if (!ready) throw new Error('Engine nicht geladen');
-
-      const bitmap = await createImageBitmap(file);
-      const Detector = getDetectorClass();
-      const detector = new Detector({ formats: BARCODE_FORMATS });
-      const codes = await detector.detect(bitmap);
-      if (bitmap.close) bitmap.close();
-
-      if (codes && codes.length && codes[0].rawValue) {
-        onScanSuccess(codes[0].rawValue);
-      } else {
-        errorEl.textContent = 'Kein Barcode im Foto erkannt – Barcode formatfüllend und scharf fotografieren.';
-      }
-    } catch (err) {
-      console.error('Foto-Auswertung fehlgeschlagen:', err);
-      errorEl.textContent = 'Foto konnte nicht ausgewertet werden (' + (err?.message || 'Fehler') + ').';
-    } finally {
-      event.target.value = '';
-    }
   }
 
   function onScanSuccess(decodedText) {
@@ -737,55 +625,14 @@
     document.getElementById('input-charge').focus();
   }
 
-  function releaseCamera() {
-    scanning = false;
-
-    if (currentStream) {
-      currentStream.getTracks().forEach(t => {
-        try { t.stop(); } catch (e) {}
-      });
-    }
-    currentStream = null;
-
-    // Video-Element vollständig abbauen (iOS gibt die Kamera sonst nicht frei)
-    const container = document.getElementById('video-container');
-    if (container) {
-      container.querySelectorAll('video').forEach(v => {
-        try {
-          const s = v.srcObject;
-          if (s && s.getTracks) s.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-          v.pause();
-          v.srcObject = null;
-          v.removeAttribute('src');
-          v.load();
-        } catch (e) {}
-      });
-      container.innerHTML = '';
-    }
-  }
-
-  // Sicherheitsnetz: Kamera freigeben, wenn die App in den Hintergrund geht
-  // oder die Seite verlassen wird.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && currentStream) closeScanner();
-  });
-  window.addEventListener('pagehide', () => {
-    if (currentStream) releaseCamera();
-  });
-
   function closeScanner() {
+    if (html5QrCode) {
+      html5QrCode
+        .stop()
+        .then(() => html5QrCode.clear())
+        .catch(() => {});
+    }
     document.getElementById('scanner-overlay').style.display = 'none';
-    releaseCamera();
-  }
-
-  // Kamera hart neu starten (falls sie doch mal klemmt)
-  async function restartScanner() {
-    const errorEl = document.getElementById('scanner-error');
-    errorEl.textContent = 'Kamera wird neu gestartet …';
-    releaseCamera();
-    await new Promise(r => setTimeout(r, 400));
-    scannerStarting = false;
-    await openScanner();
   }
 
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
@@ -837,7 +684,7 @@
     const charge = document.getElementById('input-charge').value.trim();
     const slot = document.getElementById('result-slot');
 
-    if (!barcode && !charge) {
+    if (!barcode) {
       slot.innerHTML = '';
       return;
     }
@@ -860,17 +707,21 @@
       return;
     }
 
-    const name = data.produkt?.name || (data.treffer ? data.treffer.title : 'Unbekanntes Produkt');
+    const name = data.produkt?.name || 'Unbekanntes Produkt';
     let html;
 
-    if (data.status === 'warn') {
+    if (!data.produkt) {
+      html = `<div class="result">
+        <div class="result-head">Kein Eintrag gefunden</div>
+        <p>Dieser Barcode ist bei Open Food Facts nicht hinterlegt. Die Datenbank ist crowdsourced – nicht jedes Produkt ist erfasst.</p>
+      </div>`;
+    } else if (data.status === 'warn') {
       const r = data.treffer;
       html = `<div class="result warn">
         <div class="result-head">Möglicher Treffer – Rückruf aktiv</div>
-        <p><strong>${name}</strong>${charge ? ', Charge ' + charge : ''}</p>
+        <p><strong>${name}</strong>, Charge ${charge}</p>
         <p>Gemeldeter Grund: ${r.reason || 'keine Angabe'}</p>
         <p>${r.title}</p>
-        ${data.trefferUeberChargeOhneNamen ? '<p style="font-size:12px; color:var(--muted);">Hinweis: Der Produktname war bei Open Food Facts nicht hinterlegt (oder kein Barcode angegeben) – dieser Treffer basiert ausschließlich auf der übereinstimmenden Chargennummer.</p>' : ''}
         <a class="clinic-btn" href="tel:+491234567890">Klinik anrufen</a>
         <div class="meta">Gemeldet am ${r.published ? new Date(r.published).toLocaleDateString('de-DE') : '–'} · Quelle: lebensmittelwarnung.de</div>
       </div>`;
@@ -881,16 +732,11 @@
         <p>Es gibt Rückrufe mit ähnlichem Produktnamen, aber keiner nennt diese Chargennummer. Bitte Chargennummer noch einmal genau prüfen.</p>
         ${data.aehnlicheKandidaten.map(k => `<p style="font-size:12px; color:var(--muted);">– ${k.titel} (Ähnlichkeit ${Math.round(k.score*100)}%)</p>`).join('')}
       </div>`;
-    } else if (data.status === 'produkt_unbekannt') {
-      html = `<div class="result">
-        <div class="result-head">Kein Eintrag gefunden</div>
-        <p>Dieser Barcode ist bei Open Food Facts nicht hinterlegt${charge ? ' und die Chargennummer passt zu keinem aktuellen Rückruf' : ''}. Die Datenbank ist crowdsourced – nicht jedes Produkt ist erfasst.</p>
-      </div>`;
     } else {
       html = `<div class="result safe">
         <div class="result-head">Unbedenklich</div>
-        <p>${barcode ? '<strong>' + name + '</strong>' : 'Diese Chargennummer'}${charge ? ', Charge ' + charge : ''}</p>
-        <p>Für ${barcode ? 'dieses Produkt' : 'diese Chargennummer'} liegt aktuell kein passender Rückruf vor.</p>
+        <p><strong>${name}</strong>${charge ? ', Charge ' + charge : ''}</p>
+        <p>Für dieses Produkt liegt aktuell kein passender Rückruf vor.</p>
       </div>`;
     }
 
@@ -898,10 +744,10 @@
 
     products.unshift({
       id: nextId++,
-      barcode: barcode || '–',
+      barcode,
       name,
       charge: charge || '–',
-      status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar',
+      status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : 'unklar',
       date: new Date().toLocaleDateString('de-DE')
     });
     renderProducts();
@@ -923,13 +769,10 @@
         const res = await fetch(`${apiBase}/api/check`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            barcode: p.barcode === '–' ? '' : p.barcode,
-            charge: p.charge === '–' ? '' : p.charge
-          })
+          body: JSON.stringify({ barcode: p.barcode, charge: p.charge === '–' ? '' : p.charge })
         });
         const data = await res.json();
-        const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar';
+        const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : 'unklar';
         if (p.status !== 'warn' && neuerStatus === 'warn') neueWarnungen++;
         p.status = neuerStatus;
       } catch (err) {
@@ -951,14 +794,14 @@
       return;
     }
     list.innerHTML = products.map(p => `
-      <div class="product-card ${p.status === 'safe' || p.status === 'warn' ? p.status : ''}">
+      <div class="product-card ${p.status === 'unklar' ? '' : p.status}">
         <div class="product-top">
           <div>
             <div class="product-name">${p.name}</div>
             <div class="product-meta">Charge ${p.charge} · geprüft am ${p.date}</div>
           </div>
-          <span class="badge ${p.status === 'safe' || p.status === 'warn' ? p.status : 'neutral'}">
-            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : p.status === 'unbekannt' ? 'Unbekannt' : 'Unklar'}
+          <span class="badge ${p.status === 'unklar' ? 'neutral' : p.status}">
+            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : 'Unklar'}
           </span>
         </div>
       </div>
@@ -1063,7 +906,6 @@
   renderProducts();
   checkBackend();
   loadRecalls();
-  document.getElementById('scanner-overlay').style.display = 'none';
 </script>
 
 </body>
