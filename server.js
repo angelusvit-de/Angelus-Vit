@@ -339,6 +339,18 @@ app.post('/api/purchases', (req, res) => {
   res.json({ ok: true, purchase: entry });
 });
 
+app.post('/api/purchases/consumed', (req, res) => {
+  const { deviceId, purchaseId: pid, verzehrt } = req.body || {};
+  const purchase = purchases.find(p => p.id === pid && p.deviceId === deviceId);
+  if (!purchase) return res.status(404).json({ error: 'Einkauf nicht gefunden' });
+
+  purchase.verzehrt = !!verzehrt;
+  purchase.verzehrtBeantwortetAm = new Date().toISOString();
+  console.log(`[antwort] Gerät ${deviceId}: "${purchase.name}" verzehrt = ${purchase.verzehrt}`);
+
+  res.json({ ok: true, purchase });
+});
+
 app.post('/api/purchases/delete', (req, res) => {
   const { deviceId, id } = req.body || {};
   const idx = purchases.findIndex(p => p.id === id && p.deviceId === deviceId);
@@ -413,7 +425,7 @@ async function matchPurchasesAgainstRecalls(newRecalls) {
       const ok = await sendPush(purchase.deviceId, {
         title: recall.istTestfall ? 'TEST: Rückruf für dein Produkt' : 'Rückruf für dein Produkt',
         body: `${purchase.name}${purchase.charge ? ' (Charge ' + purchase.charge + ')' : ''}: ${recall.reason || 'Rückruf gemeldet'}`,
-        url: '/'
+        url: `/?warnung=${purchase.id}&produkt=${encodeURIComponent(purchase.name)}`
       });
       if (ok) count++;
     }
