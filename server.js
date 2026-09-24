@@ -129,16 +129,6 @@ app.get('/api/recalls', (req, res) => {
   res.json({ updated: lastRefresh, count: recallCache.length, recalls: recallCache });
 });
 
-// Diagnose: zeigt die Rohdaten der ersten Meldungen inkl. aller Feldnamen.
-// Hilft zu prüfen, in welchem Feld die Chargennummer tatsächlich steht.
-app.get('/api/debug', (req, res) => {
-  res.json({
-    anzahl: recallCache.length,
-    feldnamen: recallCache.length ? Object.keys(recallCache[0]) : [],
-    beispiele: recallCache.slice(0, 3)
-  });
-});
-
 app.get('/api/lookup', async (req, res) => {
   const barcode = (req.query.barcode || '').trim();
   if (!barcode) return res.status(400).json({ error: 'Parameter "barcode" fehlt' });
@@ -151,27 +141,11 @@ app.get('/api/lookup', async (req, res) => {
   }
 });
 
-// ---------------------------------------------------------------------------
-// Sucht eine Chargennummer in ALLEN Textfeldern einer Rückrufmeldung.
-// Grund: je nach Datenquelle steht die Charge mal in einem eigenen Feld,
-// mal nur im Fließtext der Meldung.
-// ---------------------------------------------------------------------------
-function recallContainsCharge(recall, charge) {
-  const needle = charge.toLowerCase().trim();
-  if (needle.length < 3) return false; // zu kurz → zu viele Zufallstreffer
-  const haystack = JSON.stringify(recall).toLowerCase();
-  return haystack.includes(needle);
-}
-
 app.post('/api/check', async (req, res) => {
-  const barcode = req.body?.barcode ? String(req.body.barcode).trim() : '';
-  const charge = req.body?.charge ? String(req.body.charge).trim() : '';
+  const { barcode, charge } = req.body || {};
+  if (!barcode) return res.status(400).json({ error: 'Feld "barcode" fehlt' });
 
-  if (!barcode && !charge) {
-    return res.status(400).json({ error: 'Bitte Barcode oder Chargennummer angeben' });
-  }
-
-  const product = barcode ? await lookupBarcode(barcode).catch(() => null) : null;
+  const product = await lookupBarcode(barcode).catch(() => null);
   const productName = product?.name || null;
 
   const candidates = productName
@@ -182,30 +156,32 @@ app.post('/api/check', async (req, res) => {
     : [];
 
   const chargeMatch = charge
-    ? candidates.find(c => recallContainsCharge(c.recall, charge))
+    ? candidates.find(c =>
+        (c.recall.lotNumbers || '').toLowerCase().includes(String(charge).trim().toLowerCase())
+      )
     : null;
 
   // Zusätzlicher, vom Produktnamen unabhängiger Abgleich: manchmal ist der
-  // Barcode bei Open Food Facts nicht hinterlegt (oder gar keiner angegeben),
-  // die Chargennummer im Rückruf ist aber trotzdem eindeutig genug, um das
-  // Produkt zu finden.
+  // Barcode bei Open Food Facts nicht hinterlegt, die Chargennummer im
+  // Rückruf ist aber trotzdem eindeutig genug, um das Produkt zu finden.
   const directChargeMatch = !chargeMatch && charge
-    ? recallCache.find(r => recallContainsCharge(r, charge))
+    ? recallCache.find(r =>
+        (r.lotNumbers || '').toLowerCase().includes(String(charge).trim().toLowerCase())
+      )
     : null;
 
   const treffer = chargeMatch ? chargeMatch.recall : directChargeMatch || null;
 
   res.json({
-    barcode: barcode || null,
-    charge: charge || null,
+    barcode,
     produkt: product,
     status: treffer
       ? 'warn'
       : candidates.length
         ? 'moeglicher_treffer'
-        : barcode && !product
-          ? 'produkt_unbekannt'
-          : 'kein_rueckruf_gefunden',
+        : product
+          ? 'kein_rueckruf_gefunden'
+          : 'produkt_unbekannt',
     treffer,
     trefferUeberChargeOhneNamen: !!directChargeMatch,
     aehnlicheKandidaten: candidates.slice(0, 3).map(c => ({
