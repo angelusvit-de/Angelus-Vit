@@ -36,7 +36,12 @@ self.addEventListener('notificationclick', event => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
-        if ('focus' in client) return client.focus();
+        if ('focus' in client) {
+          // App läuft bereits: in den Vordergrund holen und die Warnung melden,
+          // damit die Abfrage auch ohne Neuladen erscheint.
+          client.postMessage({ type: 'rueckruf-warnung', url: targetUrl });
+          return client.focus();
+        }
       }
       if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
     })
