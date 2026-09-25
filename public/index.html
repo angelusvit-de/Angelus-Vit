@@ -193,7 +193,6 @@
     padding: 18px 18px 12px;
     font-family: 'Lora', serif;
     font-size: 15px;
-    flex-shrink: 0;
   }
   .scanner-close {
     background: rgba(255,255,255,0.12);
@@ -205,47 +204,36 @@
     border-radius: 50%;
     cursor: pointer;
   }
-  #video-container {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
+  #reader {
+    flex: 1;
     background: #000;
   }
-  #video-container video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-  }
+  #reader video { object-fit: cover; }
   .scanner-hint {
     text-align: center;
     font-size: 12px;
     color: rgba(255,255,255,0.72);
     padding: 12px 24px 4px;
     margin: 0;
-    flex-shrink: 0;
   }
   .scanner-error {
     text-align: center;
     font-size: 12px;
     color: #F3B3A3;
-    padding: 4px 24px 8px;
+    padding: 4px 24px 16px;
     min-height: 14px;
-    flex-shrink: 0;
   }
   .scanner-manual-btn {
-    margin: 0 24px 10px;
-    padding: 11px;
+    margin: 4px 24px 24px;
+    padding: 9px;
     background: transparent;
     border: 1px solid rgba(255,255,255,0.4);
     color: #fff;
     border-radius: 7px;
-    font-size: 13px;
+    font-size: 12.5px;
     cursor: pointer;
     font-family: 'Inter', sans-serif;
-    flex-shrink: 0;
   }
-  .scanner-manual-btn:last-of-type { margin-bottom: 22px; }
   .pagination {
     display: flex;
     align-items: center;
@@ -274,85 +262,6 @@
     white-space: nowrap;
   }
   .scanner-manual-btn:hover { background: rgba(255,255,255,0.08); }
-
-  .modal-overlay {
-    display: none;
-    position: absolute;
-    inset: 0;
-    background: rgba(11, 23, 22, 0.72);
-    z-index: 80;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal-box {
-    background: var(--surface);
-    border-radius: 14px;
-    padding: 22px 20px 20px;
-    width: 100%;
-    max-width: 320px;
-    box-shadow: 0 18px 40px rgba(0,0,0,0.3);
-  }
-  .modal-title {
-    font-family: 'Lora', serif;
-    font-weight: 600;
-    font-size: 16px;
-    color: var(--warn-text);
-    margin-bottom: 10px;
-  }
-  .modal-product {
-    margin: 0 0 14px;
-    font-size: 14px;
-    font-weight: 500;
-    padding: 10px 12px;
-    background: var(--warn-bg);
-    border: 1px solid var(--warn-border);
-    border-radius: 8px;
-    line-height: 1.4;
-  }
-  .modal-question {
-    margin: 0 0 16px;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-  .modal-actions {
-    display: flex;
-    gap: 10px;
-  }
-  .modal-btn {
-    flex: 1;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 14.5px;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: 'Inter', sans-serif;
-    border: 1px solid var(--line);
-  }
-  .modal-btn-yes {
-    background: var(--warn-border);
-    border-color: var(--warn-border);
-    color: #fff;
-  }
-  .modal-btn-no {
-    background: var(--surface);
-    color: var(--ink);
-  }
-  .modal-result {
-    margin-top: 14px;
-    font-size: 13px;
-    line-height: 1.5;
-  }
-  .modal-result .close-link {
-    display: block;
-    margin-top: 12px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--muted);
-    cursor: pointer;
-    text-decoration: underline;
-  }
 
   .result {
     margin-top: 18px;
@@ -537,31 +446,14 @@
 
   <div id="banner"></div>
 
-  <!-- ABFRAGE NACH KLICK AUF DIE BENACHRICHTIGUNG -->
-  <div class="modal-overlay" id="consumed-modal">
-    <div class="modal-box">
-      <div class="modal-title">Rückruf betrifft dein Produkt</div>
-      <p class="modal-product" id="consumed-product">–</p>
-      <p class="modal-question">Hast du dieses Produkt verzehrt?</p>
-      <div class="modal-actions">
-        <button class="modal-btn modal-btn-yes" onclick="answerConsumed(true)">Ja</button>
-        <button class="modal-btn modal-btn-no" onclick="answerConsumed(false)">Nein</button>
-      </div>
-      <div id="consumed-result" class="modal-result"></div>
-    </div>
-  </div>
-
   <div class="scanner-overlay" id="scanner-overlay">
     <div class="scanner-header">
       <span>Barcode scannen</span>
       <button class="scanner-close" onclick="closeScanner()">✕</button>
     </div>
-    <div id="video-container" style="flex:1; background:#000; display:flex;"></div>
-    <p class="scanner-hint">Barcode waagerecht und flach halten, Handy ca. 10–15 cm entfernt, gute Beleuchtung, kurz stillhalten.</p>
+    <div id="reader"></div>
+    <p class="scanner-hint">Barcode mittig im Rahmen halten – gute Beleuchtung hilft.</p>
     <div id="scanner-error" class="scanner-error"></div>
-    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="decodeFromPhoto(event)">
-    <button class="scanner-manual-btn" onclick="restartScanner()">🔄 Kamera neu starten</button>
-    <button class="scanner-manual-btn" onclick="document.getElementById('photo-input').click()">📸 Stattdessen Foto vom Barcode machen</button>
     <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
   </div>
 
@@ -583,7 +475,6 @@
 
       <label for="input-charge">Chargennummer (auf der Verpackung)</label>
       <input type="text" id="input-charge" placeholder="z. B. L2456A">
-      <p class="section-sub" style="margin-top:-8px;">Barcode oder Chargennummer reicht auch allein.</p>
 
       <button class="primary" onclick="checkProduct()">Prüfen</button>
 
@@ -598,8 +489,6 @@
     <div class="view" id="view-products">
       <h2 class="section-title">Meine Produkte</h2>
       <p class="section-sub">Alle bisher geprüften Produkte. Ein erneuter Abgleich zeigt, ob eines davon inzwischen zurückgerufen wurde.</p>
-      <button class="primary" style="margin-bottom:10px;" onclick="enablePush()">🔔 Warnungen aktivieren</button>
-      <div id="push-status" class="backend-status"></div>
       <button class="primary" style="margin-bottom:16px;" onclick="recheckAllProducts()">Alle erneut gegen aktuelle Rückrufe prüfen</button>
       <div id="products-list"></div>
     </div>
@@ -697,133 +586,37 @@
   </nav>
 </div>
 
-<script type="module">
-  // Stärkere Erkennungs-Engine: ZXing-C++ als WebAssembly, eingebunden über
-  // die BarcodeDetector-Polyfill. Deutlich treffsicherer bei 1D-Barcodes (EAN)
-  // als die reine JavaScript-Portierung.
-  import { BarcodeDetector } from "https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js";
-  window.__BarcodeDetector = BarcodeDetector;
-  window.dispatchEvent(new Event('barcode-engine-ready'));
-</script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
   // ---------------------------------------------------------------------
-  // Kamera-Scanner
-  // Kamera-Stream wird bewusst selbst verwaltet und das <video>-Element bei
-  // jedem Öffnen neu erzeugt – sonst blockiert iOS nach ein paar Durchläufen.
+  // Kamera-Scanner (html5-qrcode)
   // ---------------------------------------------------------------------
-  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
+  let html5QrCode = null;
 
-  let currentStream = null;
-  let scanning = false;
-  let scannerStarting = false;
+  function openScanner() {
+    document.getElementById('scanner-overlay').style.display = 'flex';
+    document.getElementById('scanner-error').textContent = '';
+    html5QrCode = new Html5Qrcode('reader');
 
-  function getDetectorClass() {
-    return window.BarcodeDetector || window.__BarcodeDetector || null;
-  }
+    const config = {
+      fps: 10,
+      qrbox: { width: 260, height: 130 },
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128
+      ]
+    };
 
-  async function waitForEngine(timeoutMs = 8000) {
-    if (getDetectorClass()) return true;
-    return new Promise(resolve => {
-      const done = () => resolve(!!getDetectorClass());
-      window.addEventListener('barcode-engine-ready', done, { once: true });
-      setTimeout(done, timeoutMs);
-    });
-  }
-
-  async function openScanner() {
-    if (scannerStarting || currentStream) return;
-    scannerStarting = true;
-
-    const overlay = document.getElementById('scanner-overlay');
-    const errorEl = document.getElementById('scanner-error');
-    const container = document.getElementById('video-container');
-    overlay.style.display = 'flex';
-    errorEl.textContent = 'Kamera wird gestartet …';
-
-    try {
-      const ready = await waitForEngine();
-      if (!ready) throw new Error('Erkennungs-Engine konnte nicht geladen werden');
-
-      // Wichtig für iOS: bei JEDEM Öffnen ein frisches <video>-Element erzeugen.
-      container.innerHTML = '';
-      const video = document.createElement('video');
-      video.setAttribute('playsinline', '');
-      video.muted = true;
-      container.appendChild(video);
-
-      currentStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        },
-        audio: false
+    html5QrCode
+      .start({ facingMode: 'environment' }, config, onScanSuccess, () => {})
+      .catch(err => {
+        document.getElementById('scanner-error').textContent =
+          'Kamera konnte nicht gestartet werden. Bitte Kamerazugriff für diese Seite erlauben.';
+        console.error(err);
       });
-
-      video.srcObject = currentStream;
-      await video.play();
-
-      errorEl.textContent = '';
-      scanning = true;
-      runDetectionLoop(video);
-    } catch (err) {
-      console.error('Kamera-Start fehlgeschlagen:', err);
-      errorEl.textContent =
-        'Kamera nicht verfügbar (' + (err?.name || err?.message || 'Fehler') + '). Foto-Button nutzen oder manuell eingeben.';
-      releaseCamera();
-    } finally {
-      scannerStarting = false;
-    }
-  }
-
-  async function runDetectionLoop(video) {
-    const Detector = getDetectorClass();
-    const detector = new Detector({ formats: BARCODE_FORMATS });
-
-    while (scanning && currentStream) {
-      try {
-        if (video.readyState >= 2) {
-          const codes = await detector.detect(video);
-          if (codes && codes.length && codes[0].rawValue) {
-            onScanSuccess(codes[0].rawValue);
-            return;
-          }
-        }
-      } catch (e) {
-        // Einzelbild nicht auswertbar – weiter versuchen
-      }
-      await new Promise(r => setTimeout(r, 120));
-    }
-  }
-
-  // Fallback: Foto mit der nativen Kamera aufnehmen und daraus dekodieren.
-  async function decodeFromPhoto(event) {
-    const file = event.target.files && event.target.files[0];
-    if (!file) return;
-    const errorEl = document.getElementById('scanner-error');
-    errorEl.textContent = 'Foto wird ausgewertet …';
-
-    try {
-      const ready = await waitForEngine();
-      if (!ready) throw new Error('Engine nicht geladen');
-
-      const bitmap = await createImageBitmap(file);
-      const Detector = getDetectorClass();
-      const detector = new Detector({ formats: BARCODE_FORMATS });
-      const codes = await detector.detect(bitmap);
-      if (bitmap.close) bitmap.close();
-
-      if (codes && codes.length && codes[0].rawValue) {
-        onScanSuccess(codes[0].rawValue);
-      } else {
-        errorEl.textContent = 'Kein Barcode im Foto erkannt – Barcode formatfüllend und scharf fotografieren.';
-      }
-    } catch (err) {
-      console.error('Foto-Auswertung fehlgeschlagen:', err);
-      errorEl.textContent = 'Foto konnte nicht ausgewertet werden (' + (err?.message || 'Fehler') + ').';
-    } finally {
-      event.target.value = '';
-    }
   }
 
   function onScanSuccess(decodedText) {
@@ -832,55 +625,14 @@
     document.getElementById('input-charge').focus();
   }
 
-  function releaseCamera() {
-    scanning = false;
-
-    if (currentStream) {
-      currentStream.getTracks().forEach(t => {
-        try { t.stop(); } catch (e) {}
-      });
-    }
-    currentStream = null;
-
-    // Video-Element vollständig abbauen (iOS gibt die Kamera sonst nicht frei)
-    const container = document.getElementById('video-container');
-    if (container) {
-      container.querySelectorAll('video').forEach(v => {
-        try {
-          const s = v.srcObject;
-          if (s && s.getTracks) s.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-          v.pause();
-          v.srcObject = null;
-          v.removeAttribute('src');
-          v.load();
-        } catch (e) {}
-      });
-      container.innerHTML = '';
-    }
-  }
-
-  // Sicherheitsnetz: Kamera freigeben, wenn die App in den Hintergrund geht
-  // oder die Seite verlassen wird.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && currentStream) closeScanner();
-  });
-  window.addEventListener('pagehide', () => {
-    if (currentStream) releaseCamera();
-  });
-
   function closeScanner() {
+    if (html5QrCode) {
+      html5QrCode
+        .stop()
+        .then(() => html5QrCode.clear())
+        .catch(() => {});
+    }
     document.getElementById('scanner-overlay').style.display = 'none';
-    releaseCamera();
-  }
-
-  // Kamera hart neu starten (falls sie doch mal klemmt)
-  async function restartScanner() {
-    const errorEl = document.getElementById('scanner-error');
-    errorEl.textContent = 'Kamera wird neu gestartet …';
-    releaseCamera();
-    await new Promise(r => setTimeout(r, 400));
-    scannerStarting = false;
-    await openScanner();
   }
 
   // Wird die Seite vom Backend selbst ausgeliefert (z. B. übers WLAN vom iPhone
@@ -893,156 +645,6 @@
   // ---- App-Zustand ----
   let apiBase = document.getElementById('input-backend').value.replace(/\/$/, '');
   let products = []; // { id, barcode, name, charge, status, date, treffer }
-
-  // ---------------------------------------------------------------------
-  // Geräte-ID: identifiziert dieses Gerät gegenüber dem Server, damit er
-  // weiß, wem eine Warnung geschickt werden muss.
-  // ---------------------------------------------------------------------
-  function getDeviceId() {
-    let id = null;
-    try { id = localStorage.getItem('angelus-device-id'); } catch (e) {}
-    if (!id) {
-      id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-      try { localStorage.setItem('angelus-device-id', id); } catch (e) {}
-    }
-    return id;
-  }
-  const deviceId = getDeviceId();
-
-  // ---------------------------------------------------------------------
-  // Push-Benachrichtigungen
-  // ---------------------------------------------------------------------
-  function urlBase64ToUint8Array(base64String) {
-    const clean = String(base64String).trim().replace(/\s/g, '');
-    const padding = '='.repeat((4 - (clean.length % 4)) % 4);
-    const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const raw = atob(base64);
-    const out = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
-    return out;
-  }
-
-  async function enablePush() {
-    const statusEl = document.getElementById('push-status');
-    const istInstalliert = window.matchMedia('(display-mode: standalone)').matches
-      || window.navigator.standalone === true;
-
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      statusEl.className = 'backend-status error';
-      statusEl.textContent = istInstalliert
-        ? 'Push wird von diesem Browser nicht unterstützt.'
-        : 'Auf dem iPhone nur möglich, wenn die App über „Teilen → Zum Home-Bildschirm“ installiert ist.';
-      return;
-    }
-
-    statusEl.className = 'backend-status pending';
-    let schritt = 'Start';
-
-    try {
-      schritt = 'Service Worker registrieren';
-      statusEl.textContent = 'Schritt 1/5: ' + schritt + ' …';
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-
-      schritt = 'Berechtigung anfragen';
-      statusEl.textContent = 'Schritt 2/5: ' + schritt + ' …';
-      const permission = await Notification.requestPermission();
-      if (permission !== 'granted') {
-        statusEl.className = 'backend-status error';
-        statusEl.textContent = 'Benachrichtigungen wurden abgelehnt.';
-        return;
-      }
-
-      schritt = 'Schlüssel vom Server holen';
-      statusEl.textContent = 'Schritt 3/5: ' + schritt + ' …';
-      const keyRes = await fetch(`${apiBase}/api/push/key`);
-      if (!keyRes.ok) throw new Error('Server antwortete mit Status ' + keyRes.status);
-      const keyData = await keyRes.json();
-      const publicKey = keyData && keyData.publicKey ? String(keyData.publicKey).trim() : '';
-      if (!publicKey) throw new Error('Kein Schlüssel vom Server erhalten – läuft die neue server.js?');
-
-      schritt = 'Abo anlegen';
-      statusEl.textContent = 'Schritt 4/5: ' + schritt + ' …';
-
-      // Altes Abo verwerfen: Der Server erzeugt bei jedem Neustart neue
-      // Schlüssel, ein altes Abo passt dann nicht mehr dazu.
-      const vorhandenes = await reg.pushManager.getSubscription();
-      if (vorhandenes) {
-        try { await vorhandenes.unsubscribe(); } catch (e) {}
-      }
-
-      const applicationServerKey = urlBase64ToUint8Array(publicKey);
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey
-      });
-
-      schritt = 'Abo an Server senden';
-      statusEl.textContent = 'Schritt 5/5: ' + schritt + ' …';
-      const saveRes = await fetch(`${apiBase}/api/push/subscribe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, subscription: sub })
-      });
-      if (!saveRes.ok) throw new Error('Server lehnte das Abo ab (Status ' + saveRes.status + ')');
-
-      statusEl.className = 'backend-status ok';
-      statusEl.textContent = 'Warnungen aktiv – du wirst bei Rückrufen benachrichtigt.';
-    } catch (err) {
-      console.error('Push-Einrichtung fehlgeschlagen bei „' + schritt + '“:', err);
-      statusEl.className = 'backend-status error';
-      statusEl.textContent =
-        'Fehlgeschlagen bei „' + schritt + '“: ' + (err?.name || '') + ' ' + (err?.message || 'unbekannter Fehler');
-    }
-  }
-
-  // Einkauf serverseitig speichern, damit er auch bei geschlossener App
-  // gegen neue Rückrufe geprüft werden kann.
-  async function savePurchaseToServer(entry) {
-    try {
-      const res = await fetch(`${apiBase}/api/purchases`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, ...entry })
-      });
-      const data = await res.json();
-      return data.purchase ? data.purchase.id : null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // Test: gespeichertes Produkt zum Rückruf erklären und Push auslösen
-  const TEST_VERZOEGERUNG_SEK = 30;
-
-  async function simulateRecall(serverId) {
-    if (!serverId) {
-      showBanner('Dieser Eintrag ist nicht auf dem Server gespeichert.', true);
-      return;
-    }
-    showBanner(`Testrückruf läuft in ${TEST_VERZOEGERUNG_SEK} Sekunden – App jetzt schließen!`, true);
-    try {
-      const res = await fetch(`${apiBase}/api/test/recall`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceId,
-          purchaseId: serverId,
-          verzoegerungSekunden: TEST_VERZOEGERUNG_SEK
-        })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showBanner(
-          `Testrückruf ist scharf gestellt. Schließe die App jetzt – in ${TEST_VERZOEGERUNG_SEK} Sekunden kommt die Benachrichtigung.`
-        );
-      } else {
-        showBanner('Simulation fehlgeschlagen: ' + (data.error || 'Fehler'), true);
-      }
-    } catch (err) {
-      showBanner('Simulation fehlgeschlagen.', true);
-    }
-  }
   let nextId = 1;
 
   // ---------------------------------------------------------------------
@@ -1082,7 +684,7 @@
     const charge = document.getElementById('input-charge').value.trim();
     const slot = document.getElementById('result-slot');
 
-    if (!barcode && !charge) {
+    if (!barcode) {
       slot.innerHTML = '';
       return;
     }
@@ -1105,17 +707,21 @@
       return;
     }
 
-    const name = data.produkt?.name || (data.treffer ? data.treffer.title : 'Unbekanntes Produkt');
+    const name = data.produkt?.name || 'Unbekanntes Produkt';
     let html;
 
-    if (data.status === 'warn') {
+    if (!data.produkt) {
+      html = `<div class="result">
+        <div class="result-head">Kein Eintrag gefunden</div>
+        <p>Dieser Barcode ist bei Open Food Facts nicht hinterlegt. Die Datenbank ist crowdsourced – nicht jedes Produkt ist erfasst.</p>
+      </div>`;
+    } else if (data.status === 'warn') {
       const r = data.treffer;
       html = `<div class="result warn">
         <div class="result-head">Möglicher Treffer – Rückruf aktiv</div>
-        <p><strong>${name}</strong>${charge ? ', Charge ' + charge : ''}</p>
+        <p><strong>${name}</strong>, Charge ${charge}</p>
         <p>Gemeldeter Grund: ${r.reason || 'keine Angabe'}</p>
         <p>${r.title}</p>
-        ${data.trefferUeberChargeOhneNamen ? '<p style="font-size:12px; color:var(--muted);">Hinweis: Der Produktname war bei Open Food Facts nicht hinterlegt (oder kein Barcode angegeben) – dieser Treffer basiert ausschließlich auf der übereinstimmenden Chargennummer.</p>' : ''}
         <a class="clinic-btn" href="tel:+491234567890">Klinik anrufen</a>
         <div class="meta">Gemeldet am ${r.published ? new Date(r.published).toLocaleDateString('de-DE') : '–'} · Quelle: lebensmittelwarnung.de</div>
       </div>`;
@@ -1126,45 +732,25 @@
         <p>Es gibt Rückrufe mit ähnlichem Produktnamen, aber keiner nennt diese Chargennummer. Bitte Chargennummer noch einmal genau prüfen.</p>
         ${data.aehnlicheKandidaten.map(k => `<p style="font-size:12px; color:var(--muted);">– ${k.titel} (Ähnlichkeit ${Math.round(k.score*100)}%)</p>`).join('')}
       </div>`;
-    } else if (data.status === 'produkt_unbekannt') {
-      html = `<div class="result">
-        <div class="result-head">Kein Eintrag gefunden</div>
-        <p>Dieser Barcode ist bei Open Food Facts nicht hinterlegt${charge ? ' und die Chargennummer passt zu keinem aktuellen Rückruf' : ''}. Die Datenbank ist crowdsourced – nicht jedes Produkt ist erfasst.</p>
-      </div>`;
     } else {
       html = `<div class="result safe">
         <div class="result-head">Unbedenklich</div>
-        <p>${barcode ? '<strong>' + name + '</strong>' : 'Diese Chargennummer'}${charge ? ', Charge ' + charge : ''}</p>
-        <p>Für ${barcode ? 'dieses Produkt' : 'diese Chargennummer'} liegt aktuell kein passender Rückruf vor.</p>
+        <p><strong>${name}</strong>${charge ? ', Charge ' + charge : ''}</p>
+        <p>Für dieses Produkt liegt aktuell kein passender Rückruf vor.</p>
       </div>`;
     }
 
     slot.innerHTML = html;
 
-    const eintrag = {
+    products.unshift({
       id: nextId++,
-      barcode: barcode || '–',
-      name,
-      charge: charge || '–',
-      status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar',
-      date: new Date().toLocaleDateString('de-DE'),
-      serverId: null
-    };
-    products.unshift(eintrag);
-    renderProducts();
-
-    // Serverseitig sichern (für Push-Abgleich im Hintergrund)
-    savePurchaseToServer({
       barcode,
       name,
-      charge,
-      status: eintrag.status
-    }).then(serverId => {
-      if (serverId) {
-        eintrag.serverId = serverId;
-        renderProducts();
-      }
+      charge: charge || '–',
+      status: data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : 'unklar',
+      date: new Date().toLocaleDateString('de-DE')
     });
+    renderProducts();
   }
 
   // ---------------------------------------------------------------------
@@ -1183,13 +769,10 @@
         const res = await fetch(`${apiBase}/api/check`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            barcode: p.barcode === '–' ? '' : p.barcode,
-            charge: p.charge === '–' ? '' : p.charge
-          })
+          body: JSON.stringify({ barcode: p.barcode, charge: p.charge === '–' ? '' : p.charge })
         });
         const data = await res.json();
-        const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : data.status === 'produkt_unbekannt' ? 'unbekannt' : 'unklar';
+        const neuerStatus = data.status === 'warn' ? 'warn' : data.status === 'kein_rueckruf_gefunden' ? 'safe' : 'unklar';
         if (p.status !== 'warn' && neuerStatus === 'warn') neueWarnungen++;
         p.status = neuerStatus;
       } catch (err) {
@@ -1211,21 +794,16 @@
       return;
     }
     list.innerHTML = products.map(p => `
-      <div class="product-card ${p.status === 'safe' || p.status === 'warn' ? p.status : ''}">
+      <div class="product-card ${p.status === 'unklar' ? '' : p.status}">
         <div class="product-top">
           <div>
             <div class="product-name">${p.name}</div>
             <div class="product-meta">Charge ${p.charge} · geprüft am ${p.date}</div>
           </div>
-          <span class="badge ${p.status === 'safe' || p.status === 'warn' ? p.status : 'neutral'}">
-            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : p.status === 'unbekannt' ? 'Unbekannt' : 'Unklar'}
+          <span class="badge ${p.status === 'unklar' ? 'neutral' : p.status}">
+            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : 'Unklar'}
           </span>
         </div>
-        ${p.status !== 'warn' && p.serverId ? `
-          <button class="button-secondary" style="margin:10px 0 0; font-size:11.5px; padding:7px;"
-                  onclick="simulateRecall(${p.serverId})">
-            🧪 Testfall: Rückruf in 30 Sek. auslösen
-          </button>` : ''}
       </div>
     `).join('');
   }
@@ -1325,83 +903,9 @@
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Abfrage nach Klick auf eine Rückruf-Benachrichtigung
-  // ---------------------------------------------------------------------
-  let aktuelleWarnungId = null;
-
-  function zeigeVerzehrAbfrage(purchaseIdStr, produktName) {
-    const id = Number(purchaseIdStr);
-    if (!id) return;
-    aktuelleWarnungId = id;
-
-    document.getElementById('consumed-product').textContent = produktName || 'Betroffenes Produkt';
-    document.getElementById('consumed-result').innerHTML = '';
-    document.querySelector('#consumed-modal .modal-actions').style.display = 'flex';
-    document.querySelector('#consumed-modal .modal-question').style.display = 'block';
-    document.getElementById('consumed-modal').classList.add('open');
-  }
-
-  function schliesseVerzehrAbfrage() {
-    document.getElementById('consumed-modal').classList.remove('open');
-    aktuelleWarnungId = null;
-  }
-
-  async function answerConsumed(verzehrt) {
-    const resultEl = document.getElementById('consumed-result');
-    document.querySelector('#consumed-modal .modal-actions').style.display = 'none';
-    document.querySelector('#consumed-modal .modal-question').style.display = 'none';
-
-    resultEl.innerHTML = verzehrt
-      ? `<div style="color:var(--warn-text); font-weight:500; margin-bottom:6px;">Bitte Klinik informieren</div>
-         <div>Melde dich zeitnah bei deinem Behandlungsteam – auch wenn du dich aktuell gut fühlst. Nicht ungeplant in die Notaufnahme fahren, sondern vorher anrufen.</div>
-         <a class="clinic-btn" style="margin-top:12px;" href="tel:+491234567890">Klinik anrufen</a>
-         <span class="close-link" onclick="schliesseVerzehrAbfrage()">Schließen</span>`
-      : `<div style="color:var(--safe-text); font-weight:500; margin-bottom:6px;">Gut – nicht verzehrt</div>
-         <div>Entsorge das Produkt und verzehre es auf keinen Fall mehr. Eine Rückgabe im Geschäft ist in der Regel auch ohne Kassenbon möglich.</div>
-         <span class="close-link" onclick="schliesseVerzehrAbfrage()">Schließen</span>`;
-
-    // Antwort auf dem Server festhalten
-    try {
-      await fetch(`${apiBase}/api/purchases/consumed`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceId, purchaseId: aktuelleWarnungId, verzehrt })
-      });
-    } catch (e) {
-      // Für den Ablauf unkritisch – Hinweis wird trotzdem angezeigt
-    }
-  }
-
-  // Fall 1: App wurde durch den Klick auf die Benachrichtigung neu geöffnet
-  function pruefeWarnungAusUrl(urlString) {
-    try {
-      const url = new URL(urlString || window.location.href, window.location.origin);
-      const warnung = url.searchParams.get('warnung');
-      const produkt = url.searchParams.get('produkt');
-      if (warnung) {
-        zeigeVerzehrAbfrage(warnung, produkt ? decodeURIComponent(produkt) : null);
-        // Parameter aus der Adresse entfernen, damit die Abfrage nicht
-        // bei jedem Neuladen wieder erscheint.
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-    } catch (e) {}
-  }
-
-  // Fall 2: App lief bereits – der Service Worker meldet die Warnung
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'rueckruf-warnung') {
-        pruefeWarnungAusUrl(event.data.url);
-      }
-    });
-  }
-
   renderProducts();
   checkBackend();
   loadRecalls();
-  pruefeWarnungAusUrl();
-  document.getElementById('scanner-overlay').style.display = 'none';
 </script>
 
 </body>
