@@ -654,6 +654,16 @@
       <h2 class="section-title">Ernährungsratgeber</h2>
       <p class="section-sub">Begleitende Orientierung für die Ernährung bei geschwächtem Immunsystem. Platzhaltertext für den Prototyp – in der echten App redaktionell mit der Partnerklinik erstellt und laufend aktualisiert.</p>
 
+      <!-- Schutzcheck: Empfindlichkeit.
+           Bewusst ohne Diagnoseabfrage. Die Auswahl bleibt in localStorage und
+           wird nicht an den Server geschickt – sonst wäre sie ein Rückschluss
+           auf den Gesundheitszustand und damit ein Gesundheitsdatum. -->
+      <div class="guide-section" style="padding:14px 16px;">
+        <strong style="display:block;margin-bottom:2px;">Schutzcheck</strong>
+        <p class="section-sub" style="margin:0 0 4px;">Bestimmt, wie streng Produkte beim Scannen bewertet werden. Es wird kein Grund und keine Diagnose abgefragt.</p>
+        <div id="schutzcheck-einstellung"></div>
+      </div>
+
       <details class="guide-section" open>
         <summary>Warum gelten für dich andere Regeln?</summary>
         <div class="guide-body">
@@ -728,6 +738,11 @@
     </button>
   </nav>
 </div>
+
+<!-- Schutzcheck: Bewertung der Vorsichtsstufe. Bringt sein eigenes Styling mit
+     und lädt die Regeltabelle (regeln.json) selbst nach. Muss vor dem
+     Hauptskript stehen, damit window.Schutzcheck dort verfügbar ist. -->
+<script src="schutzcheck.js"></script>
 
 <script type="module">
   // Stärkere Erkennungs-Engine: ZXing-C++ als WebAssembly, eingebunden über
@@ -1248,6 +1263,13 @@
 
     slot.innerHTML = html;
 
+    // Schutzcheck unter das Rückrufergebnis hängen. Die Bewertung passiert im
+    // Browser – der Server liefert nur die Produktfakten und die für alle
+    // gleiche Regeltabelle und erfährt die Empfindlichkeit nicht.
+    if (window.Schutzcheck) {
+      Schutzcheck.anzeigen(data.produkt, slot, apiBase);
+    }
+
     // Ohne verwertbare Angaben nichts speichern.
     if (data.status === 'name_noetig') return;
 
@@ -1362,22 +1384,35 @@
     try {
       const res = await fetch(`${apiBase}/api/recalls`);
       const data = await res.json();
-      updatedEl.textContent = data.updated
-        ? `Zuletzt aktualisiert: ${new Date(data.updated).toLocaleString('de-DE')} · ${data.count} Meldungen`
-        : '';
-      updatedEl.className = 'backend-status ok';
 
-      allRecalls = data.recalls || [];
+      // Der Endpunkt hat zwei Formen: früher eine nackte Liste, heute ein
+      // Objekt { updated, count, recalls }. Beide werden akzeptiert, damit ein
+      // älteres Backend die Liste nicht stillschweigend leer erscheinen lässt.
+      const istListe = Array.isArray(data);
+      allRecalls = istListe ? data : (Array.isArray(data.recalls) ? data.recalls : []);
+      const stand = istListe ? null : data.updated;
+
+      updatedEl.className = 'backend-status ok';
+      updatedEl.textContent = stand
+        ? `Zuletzt aktualisiert: ${new Date(stand).toLocaleString('de-DE')} · ${allRecalls.length} Meldungen`
+        : `${allRecalls.length} Meldungen`;
 
       if (!allRecalls.length) {
-        list.innerHTML = '<div class="empty-state">Aktuell keine laufenden Lebensmittel-Rückrufe.</div>';
+        // Leer kann zwei Dinge heißen: wirklich keine Rückrufe, oder eine
+        // Antwort in einem Format, das hier nicht gelesen werden konnte.
+        const unerwartet = !istListe && !Array.isArray(data.recalls);
+        updatedEl.className = unerwartet ? 'backend-status error' : 'backend-status ok';
+        list.innerHTML = unerwartet
+          ? `<div class="empty-state">Das Backend hat geantwortet, aber in einem unerwarteten Format.
+               Prüfe, ob die aktuelle <code>server.js</code> auf Render liegt.</div>`
+          : '<div class="empty-state">Aktuell keine laufenden Lebensmittel-Rückrufe.</div>';
         return;
       }
       renderRecallsPage(1);
     } catch (err) {
       updatedEl.className = 'backend-status error';
       updatedEl.textContent = 'Backend nicht erreichbar.';
-      list.innerHTML = '';
+      list.innerHTML = `<div class="empty-state">Keine Verbindung zum Backend (${err.message}).</div>`;
     }
   }
 
@@ -1519,6 +1554,10 @@
   // Erst die Backend-Adresse festlegen, dann Daten laden – sonst würden die
   // Rückrufe noch von der falschen Adresse angefragt.
   (async function start() {
+    // Auswahlfeld für die Empfindlichkeit im Ratgeber-Tab aufbauen.
+    if (window.Schutzcheck) {
+      Schutzcheck.renderEinstellung(document.getElementById('schutzcheck-einstellung'));
+    }
     await checkBackend();
     loadRecalls();
   })();

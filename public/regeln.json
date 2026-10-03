@@ -1,0 +1,270 @@
+{
+  "version": "2026-10-03",
+  "status": "ENTWURF – fachlich noch nicht geprüft",
+  "hinweis": "Diese Tabelle ist nach öffentlich zugänglichen Verbraucherinformationen erstellt und wurde NICHT von einer Ernährungsfachkraft freigegeben. Vor Einsatz mit echten Nutzern prüfen lassen.",
+  "quellen": [
+    "Verbraucherzentrale / Lebensmittelklarheit",
+    "VerbraucherService Bayern",
+    "Open Food Facts Kategoriesystem"
+  ],
+
+  "_format": {
+    "trifft": "Bedingungen; eine erfüllte Bedingung genügt. kategorien = OFF categories_tags, labels = OFF labels_tags, zutaten = Teilstrings im Zutatentext (kleingeschrieben).",
+    "ausser": "Entkräftet den Treffer vollständig. Gleiche Felder.",
+    "stufe": "Pro Empfindlichkeit: rot, gelb oder gruen. Fehlt ein Schlüssel, gilt die Regel für diese Empfindlichkeit nicht.",
+    "grund": "Wird dem Menschen angezeigt. Nennt immer den Erreger oder den konkreten Anlass, nie nur eine Farbe.",
+    "pruefen": "Was der Mensch selbst auf der Packung nachsehen soll. Macht Gelb ehrlich statt vage.",
+    "sicherheit": "hoch = steht in den Daten; mittel = Kategorie legt es nahe; niedrig = Erfahrungswissen über das Gericht, steht in keiner Datenbank."
+  },
+
+  "regeln": [
+
+    {
+      "id": "rohmilch-deklariert",
+      "titel": "Aus Rohmilch hergestellt",
+      "sicherheit": "hoch",
+      "trifft": {
+        "zutaten": ["rohmilch", "aus rohmilch", "lait cru", "raw milk", "latte crudo"],
+        "labels": ["en:raw-milk"]
+      },
+      "ausser": {
+        "kategorien": ["en:hard-cheeses", "en:extra-hard-cheeses", "en:grana-padano", "en:parmigiano-reggiano"]
+      },
+      "entwarnung": "Hier steht zwar Rohmilch auf der Packung, es ist aber lang gereifter Hartkäse: Der Bruch wird erhitzt und die lange Reifung tötet die Keime ab. Gilt auch für Schwangere als unbedenklich.",
+      "stufe": { "standard": "rot", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Rohmilch – kann Listerien enthalten",
+      "pruefen": "Die Angabe „aus Rohmilch hergestellt“ ist Pflicht und steht auf jeder Packung."
+    },
+
+    {
+      "id": "rohmilch-trinkmilch",
+      "titel": "Rohmilch / Vorzugsmilch",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:raw-milks", "en:raw-milk"] },
+      "stufe": { "standard": "rot", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Nicht erhitzte Milch – Listerien, Campylobacter, EHEC",
+      "pruefen": "Abgekocht ist sie unbedenklich."
+    },
+
+    {
+      "id": "weichkaese",
+      "titel": "Weichkäse",
+      "sicherheit": "mittel",
+      "trifft": {
+        "kategorien": ["en:soft-cheeses", "en:blue-cheeses", "en:washed-rind-cheeses", "en:camembert", "en:brie", "en:feta", "en:mozzarella", "en:gorgonzola", "en:roquefort"]
+      },
+      "ausser": {
+        "zutaten": ["pasteurisierte milch", "aus pasteurisierter"]
+      },
+      "stufe": { "standard": "gelb", "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Weichkäse – Listerien vermehren sich auch im Kühlschrank weiter",
+      "pruefen": "Rot, wenn „aus Rohmilch“ auf der Packung steht. Aus pasteurisierter Milch und abgepackt ist er deutlich unkritischer. Rinde immer abschneiden."
+    },
+
+    {
+      "id": "sprossen",
+      "titel": "Sprossen und Keimlinge",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:sprouts", "en:sprouted-seeds", "en:alfalfa-sprouts", "en:bean-sprouts"] },
+      "stufe": { "standard": "rot", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Sprossen – Keime wachsen in der feuchtwarmen Anzucht mit",
+      "pruefen": "Durcherhitzt sind sie unbedenklich."
+    },
+
+    {
+      "id": "roher-fisch",
+      "titel": "Roher Fisch",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:sushi", "en:sashimi", "en:raw-fish", "en:ceviche", "en:tartares-of-fish"] },
+      "stufe": { "standard": "rot", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Roher Fisch – Listerien und Parasiten",
+      "pruefen": null
+    },
+
+    {
+      "id": "raeucherfisch",
+      "titel": "Räucherfisch und Graved",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:smoked-fish", "en:smoked-salmon", "en:gravlax", "en:smoked-trouts", "en:marinated-fish"] },
+      "stufe": { "standard": "gelb", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Kaltgeräuchert oder gebeizt – nicht durcherhitzt, Listerienrisiko",
+      "pruefen": "Durcherhitzt, etwa in einem Auflauf, ist er unbedenklich."
+    },
+
+    {
+      "id": "rohes-fleisch",
+      "titel": "Rohes Fleisch",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:raw-meats", "en:tartare", "en:carpaccio", "en:mettwurst"] },
+      "stufe": { "standard": "rot", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Rohes Fleisch – Salmonellen, Toxoplasmose, EHEC",
+      "pruefen": null
+    },
+
+    {
+      "id": "rohwurst",
+      "titel": "Rohwurst und luftgetrockneter Schinken",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:dry-sausages", "en:raw-sausages", "en:salamis", "en:raw-hams", "en:prosciutto", "en:chorizo", "en:cured-meats"] },
+      "stufe": { "standard": "gelb", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Nicht erhitzt, nur getrocknet oder gepökelt – Listerien und Toxoplasmose",
+      "pruefen": "Durcherhitzt, etwa auf einer gebackenen Pizza, ist es unbedenklich."
+    },
+
+    {
+      "id": "aufschnitt-theke",
+      "titel": "Aufschnitt und Brühwurst",
+      "sicherheit": "mittel",
+      "trifft": { "kategorien": ["en:deli-meats", "en:cooked-hams", "en:sliced-sausages", "en:pates"] },
+      "stufe": { "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Aufgeschnittene Ware kann sich nach dem Erhitzen neu besiedeln",
+      "pruefen": "Abgepackt und frisch ist unkritischer als von der Theke. Kurz erhitzen macht es sicher."
+    },
+
+    {
+      "id": "fertigsalat",
+      "titel": "Fertigsalat und vorgeschnittenes Obst",
+      "sicherheit": "mittel",
+      "trifft": { "kategorien": ["en:prepared-salads", "en:fresh-cut-fruits", "en:ready-to-eat-salads", "en:fruit-salads"] },
+      "stufe": { "standard": "gelb", "streng": "rot", "schwangerschaft": "gelb" },
+      "grund": "Geschnitten und feucht verpackt – Keime vermehren sich bis zum Verzehr",
+      "pruefen": "Selbst gewaschen und geschnitten ist unbedenklich. Achte auf Sprossen in der Zutatenliste."
+    },
+
+    {
+      "id": "rohei-produkte",
+      "titel": "Speisen mit rohem Ei",
+      "sicherheit": "mittel",
+      "trifft": { "kategorien": ["en:tiramisu", "en:mousses", "en:chocolate-mousses", "en:mayonnaises", "en:aioli", "en:remoulades", "en:eggnog", "en:zabaione"] },
+      "ausser": { "zutaten": ["pasteurisiertes ei", "pasteurisiertes vollei", "eipulver"] },
+      "stufe": { "standard": "gelb", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Enthält typischerweise rohes Ei – Salmonellen",
+      "pruefen": "Industriell abgepackt meist mit pasteurisiertem Ei und dann unbedenklich. Von der Theke oder hausgemacht oft nicht."
+    },
+
+    {
+      "id": "roher-teig",
+      "titel": "Roher Teig",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:cookie-dough", "en:raw-doughs", "en:edible-cookie-dough"] },
+      "stufe": { "standard": "rot", "streng": "rot", "schwangerschaft": "rot" },
+      "grund": "Rohes Mehl und oft rohes Ei – EHEC und Salmonellen",
+      "pruefen": "Mehl ist ein regelmäßiger Rückrufgrund, nicht nur das Ei."
+    },
+
+    {
+      "id": "frischsaft",
+      "titel": "Nicht pasteurisierter Saft",
+      "sicherheit": "mittel",
+      "trifft": { "kategorien": ["en:fresh-juices", "en:cold-pressed-juices", "en:freshly-squeezed-juices", "en:smoothies"] },
+      "ausser": { "zutaten": ["pasteurisiert", "wärmebehandelt", "erhitzt"] },
+      "stufe": { "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Frisch gepresst und nicht erhitzt – Keime der Fruchtschale gelangen mit hinein",
+      "pruefen": "Haltbarer Saft aus dem Regal ist erhitzt und unbedenklich."
+    },
+
+    {
+      "id": "honig-saeugling",
+      "titel": "Honig",
+      "sicherheit": "hoch",
+      "trifft": {
+        "kategorien": ["en:honeys"],
+        "zutaten": ["honig"]
+      },
+      "stufe": { "saeugling": "rot" },
+      "grund": "Honig – Botulismusgefahr bei Kindern unter 12 Monaten",
+      "pruefen": "Gilt nur im ersten Lebensjahr, danach unbedenklich."
+    },
+
+    {
+      "id": "leber",
+      "titel": "Leber und Leberprodukte",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:livers", "en:liver-pates", "en:liverwursts"] },
+      "stufe": { "schwangerschaft": "rot" },
+      "grund": "Sehr hoher Vitamin-A-Gehalt – in der Schwangerschaft fruchtschädigend",
+      "pruefen": null
+    },
+
+    {
+      "id": "raubfisch",
+      "titel": "Großer Raubfisch",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:swordfish", "en:sharks", "en:king-mackerel", "en:marlin", "en:tunas"] },
+      "stufe": { "schwangerschaft": "gelb" },
+      "grund": "Reichert Quecksilber an",
+      "pruefen": "Gelegentlich unproblematisch, nicht regelmäßig."
+    },
+
+    {
+      "id": "alkohol",
+      "titel": "Alkohol",
+      "sicherheit": "hoch",
+      "trifft": { "kategorien": ["en:alcoholic-beverages", "en:beers", "en:wines", "en:spirits"] },
+      "stufe": { "schwangerschaft": "rot" },
+      "grund": "Keine bekannte unbedenkliche Menge in der Schwangerschaft",
+      "pruefen": null
+    },
+
+    {
+      "id": "typisch-pizza",
+      "titel": "Fertigpizza",
+      "sicherheit": "niedrig",
+      "trifft": { "kategorien": ["en:pizzas", "en:frozen-pizzas"] },
+      "stufe": { "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Enthält manchmal Weichkäse oder Rohwurst",
+      "pruefen": "Vollständig durchgebacken ist beides unbedenklich. Kritisch nur bei nachträglich aufgelegtem Belag."
+    },
+
+    {
+      "id": "typisch-gefuellte-pasta",
+      "titel": "Gefüllte Pasta",
+      "sicherheit": "niedrig",
+      "trifft": { "kategorien": ["en:stuffed-pastas", "en:ravioli", "en:tortellini"] },
+      "stufe": { "streng": "gelb" },
+      "grund": "Füllungen enthalten oft Weichkäse",
+      "pruefen": "Durchgekocht unbedenklich. Zutatenliste auf Gorgonzola oder Ricotta prüfen."
+    },
+
+    {
+      "id": "typisch-pesto",
+      "titel": "Pesto und Käsesaucen",
+      "sicherheit": "niedrig",
+      "trifft": { "kategorien": ["en:pestos", "en:cheese-sauces"] },
+      "stufe": { "streng": "gelb" },
+      "grund": "Enthält oft Pecorino oder Parmesan",
+      "pruefen": "Lang gereifter Hartkäse gilt als unbedenklich, Weichkäse nicht."
+    },
+
+    {
+      "id": "typisch-sandwich",
+      "titel": "Belegte Brötchen und Sandwiches",
+      "sicherheit": "niedrig",
+      "trifft": { "kategorien": ["en:sandwiches", "en:filled-sandwiches", "en:wraps"] },
+      "stufe": { "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Belag ist oft Aufschnitt, Weichkäse oder Räucherfisch",
+      "pruefen": "Zutatenliste durchsehen, der Name verrät den Belag selten vollständig."
+    },
+
+    {
+      "id": "typisch-bowl",
+      "titel": "Bowls und Asia-Fertiggerichte",
+      "sicherheit": "niedrig",
+      "trifft": { "kategorien": ["en:poke-bowls", "en:asian-dishes", "en:salad-bowls"] },
+      "stufe": { "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Enthalten oft rohen Fisch oder Sprossen",
+      "pruefen": "Zutatenliste prüfen."
+    },
+
+    {
+      "id": "weiches-ei",
+      "titel": "Eier",
+      "sicherheit": "mittel",
+      "trifft": { "kategorien": ["en:eggs", "en:chicken-eggs"] },
+      "stufe": { "streng": "gelb", "schwangerschaft": "gelb" },
+      "grund": "Nur durchgegart unbedenklich – Salmonellen",
+      "pruefen": "Eigelb und Eiweiß müssen fest sein."
+    }
+
+  ]
+}
