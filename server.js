@@ -139,16 +139,32 @@ function similarity(a, b) {
 // ---------------------------------------------------------------------------
 // 3) Barcode -> Produktname (Open Food Facts – offiziell, kostenlos, kein Key)
 // ---------------------------------------------------------------------------
+// Die zusätzlichen Felder (Kategorien, Zutaten, Labels) braucht der
+// Schutzcheck im Frontend. Bewertet wird dort, nicht hier: der Server soll
+// nicht erfahren, welche Empfindlichkeit jemand eingestellt hat, weil das ein
+// Rückschluss auf den Gesundheitszustand wäre.
+const OFF_FELDER = [
+  'product_name', 'product_name_de', 'brands',
+  'categories_tags', 'labels_tags', 'allergens_tags',
+  'ingredients_text', 'ingredients_text_de'
+].join(',');
+
 async function lookupBarcode(barcode) {
-  const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`, {
-    headers: { 'User-Agent': 'AngelusVitPrototype/0.1 (kontakt@example.com)' }
-  });
+  const res = await fetch(
+    `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=${OFF_FELDER}`,
+    { headers: { 'User-Agent': 'AngelusVit/0.2 (kontakt@angelusvit.de)' } }
+  );
   if (!res.ok) return null;
   const data = await res.json();
   if (data.status !== 1 || !data.product) return null;
+  const p = data.product;
   return {
-    name: data.product.product_name_de || data.product.product_name || 'Unbekanntes Produkt',
-    brand: data.product.brands || null
+    name: p.product_name_de || p.product_name || 'Unbekanntes Produkt',
+    brand: p.brands || null,
+    kategorien: p.categories_tags || [],
+    labels: p.labels_tags || [],
+    allergene: p.allergens_tags || [],
+    zutaten: p.ingredients_text_de || p.ingredients_text || ''
   };
 }
 
@@ -176,6 +192,70 @@ app.get('/api/debug', (req, res) => {
     anzahl: recallCache.length,
     feldnamen: recallCache.length ? Object.keys(recallCache[0]) : [],
     beispiele: recallCache.slice(0, 3)
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Messung: Wie oft liefert Open Food Facts überhaupt verwertbare Daten?
+//
+// Der Schutzcheck steht und fällt damit, ob zu einem Barcode Kategorien oder
+// ein Zutatentext hinterlegt sind. Diese Zahl ist bisher nicht gemessen –
+// hier lässt sie sich mit echten Barcodes aus einem echten Einkauf ermitteln.
+//
+// Aufruf:  /api/felddeckung?barcodes=4000521006204,4311501482469,...
+// ---------------------------------------------------------------------------
+app.get('/api/felddeckung', async (req, res) => {
+  const liste = String(req.query.barcodes || '')
+    .split(/[,\s]+/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 60); // Open Food Facts nicht überrennen
+
+  if (!liste.length) {
+    return res.status(400).json({
+      error: 'Parameter "barcodes" fehlt',
+      beispiel: '/api/felddeckung?barcodes=4000521006204,4311501482469'
+    });
+  }
+
+  const zeilen = [];
+  for (const code of liste) {
+    let p = null;
+    try {
+      p = await lookupBarcode(code);
+    } catch (err) {
+      zeilen.push({ barcode: code, gefunden: false, fehler: err.message });
+      continue;
+    }
+    if (!p) {
+      zeilen.push({ barcode: code, gefunden: false });
+    } else {
+      zeilen.push({
+        barcode: code,
+        gefunden: true,
+        name: p.name,
+        kategorien: p.kategorien.length,
+        zutaten: p.zutaten ? p.zutaten.length : 0,
+        labels: p.labels.length,
+        // Das ist die Zahl, auf die es ankommt: ohne eines von beiden kann
+        // der Schutzcheck nichts sagen und muss "unbekannt" anzeigen.
+        schutzcheckMoeglich: p.kategorien.length > 0 || !!p.zutaten
+      });
+    }
+    await new Promise(r => setTimeout(r, 120)); // freundlich zur fremden API
+  }
+
+  const gefunden = zeilen.filter(z => z.gefunden);
+  const bewertbar = zeilen.filter(z => z.schutzcheckMoeglich);
+  const anteil = n => liste.length ? Math.round((n / liste.length) * 100) : 0;
+
+  res.json({
+    geprueft: liste.length,
+    inOpenFoodFacts: gefunden.length,
+    mitKategorieOderZutaten: bewertbar.length,
+    prozentGefunden: anteil(gefunden.length),
+    prozentBewertbar: anteil(bewertbar.length),
+    einzeln: zeilen
   });
 });
 
