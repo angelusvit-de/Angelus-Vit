@@ -284,6 +284,72 @@ function recallContainsCharge(recall, charge) {
 }
 
 // ---------------------------------------------------------------------------
+// Mindesthaltbarkeitsdatum.
+//
+// Aus den echten Meldungen ausgezählt: 204 von 223 nennen ein MHD, aber nur
+// 155 eine Chargennummer. Das MHD ist also das häufigere Merkmal – und auf der
+// Packung das deutlich besser lesbare. Nach § 2 der Los-Kennzeichnungs-
+// Verordnung darf es die Losnummer sogar ersetzen, weshalb es Produkte gibt,
+// auf denen gar keine Charge steht.
+//
+// Die Angaben kommen in gemischter Form ("31.08.2028", "Mindesthaltbarkeits-
+// datum: 09.06.2028", mehrere Daten untereinander), deshalb werden schlicht
+// alle Datumsangaben aus der Meldung gezogen und verglichen.
+// ---------------------------------------------------------------------------
+const DATUM_MUSTER = /\b(\d{1,2})\.(\d{1,2})\.(\d{2,4})\b/g;
+
+function datumNormal(tag, monat, jahr) {
+  const j = jahr.length === 2 ? '20' + jahr : jahr;
+  return `${tag.padStart(2, '0')}.${monat.padStart(2, '0')}.${j}`;
+}
+
+function datenAus(text) {
+  const treffer = new Set();
+  let m;
+  DATUM_MUSTER.lastIndex = 0;
+  while ((m = DATUM_MUSTER.exec(String(text || ''))) !== null) {
+    treffer.add(datumNormal(m[1], m[2], m[3]));
+  }
+  return treffer;
+}
+
+function recallContainsMhd(recall, mhd) {
+  const gesucht = datenAus(mhd);
+  if (!gesucht.size) return false;
+  const vorhanden = datenAus(JSON.stringify(recall));
+  for (const d of gesucht) if (vorhanden.has(d)) return true;
+  return false;
+}
+
+// Grenzt die Meldung die betroffene Ware überhaupt ein? Sieben der 223
+// Meldungen nennen weder Charge noch MHD – dort ist die gesamte Produktion
+// betroffen und ein Namenstreffer allein genügt für eine echte Warnung.
+function recallGrenztEin(recall) {
+  const charge = String(recall.lotNumbers || '').trim();
+  const mhd = String(recall.bestBefore || '').trim();
+  return !!(charge || mhd);
+}
+
+// Erste verwertbare Zeile eines mehrzeiligen Feldes. Beim Hersteller folgt
+// darunter die Anschrift, die für den Namensabgleich nur Rauschen wäre.
+//
+// Vorsicht: Manche Meldungen setzen die Beschriftung in eine eigene Zeile
+// ("Hersteller:" und erst darunter die Firma). Eine solche Zeile als
+// Vergleichsname zu nehmen, würde zu Fehltreffern führen – sie wird deshalb
+// übersprungen, ebenso ein vorangestelltes "Hersteller:" in derselben Zeile.
+const NUR_BESCHRIFTUNG = /^(hersteller|inverkehrbringer|firma|kontakt|anschrift)\s*[:\-]?\s*$/i;
+
+function ersteZeile(wert) {
+  const zeilen = String(wert || '')
+    .split('\n')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(z => !NUR_BESCHRIFTUNG.test(z));
+  const erste = zeilen[0] || '';
+  return erste.replace(/^(hersteller|inverkehrbringer|firma)\s*[:\-]\s*/i, '').trim();
+}
+
+// ---------------------------------------------------------------------------
 // Namensabgleich mit Wortgewichtung.
 // Reine Zeichenketten-Ähnlichkeit scheitert an Produktnamen wie
 // "Kölln Zauberfleks Schoko (375g)" vs. "Kölln Müsli Schoko". Deshalb wird
@@ -333,11 +399,27 @@ function nameScore(name, recallTitle) {
   return Math.max(wortScore, zeichenScore);
 }
 
+// Eine Meldung beschreibt dasselbe Produkt in mehreren Feldern: "title" ist
+// die Überschrift, "product" die ausführliche Bezeichnung, "manufacturer" die
+// Herstellerzeile (hilfreich bei Marken wie Kölln oder Wurzener, die im
+// Produktnamen stehen). Verglichen wird gegen alle drei, der beste Wert zählt.
+function besterNameScore(name, recall) {
+  if (!name) return 0;
+  const felder = [recall.title, recall.product, ersteZeile(recall.manufacturer)];
+  let best = 0;
+  for (const f of felder) {
+    if (!f) continue;
+    const s = nameScore(name, f);
+    if (s > best) best = s;
+  }
+  return best;
+}
+
 // Liefert die nach Namen passenden Rückrufe, beste zuerst.
 function findeKandidaten(name, rueckrufe) {
   if (!name) return [];
   return rueckrufe
-    .map(r => ({ recall: r, score: nameScore(name, r.title) }))
+    .map(r => ({ recall: r, score: besterNameScore(name, r) }))
     .filter(c => c.score >= SIMILARITY_THRESHOLD)
     .sort((a, b) => b.score - a.score);
 }
@@ -355,10 +437,11 @@ function findeKandidaten(name, rueckrufe) {
 app.post('/api/check', async (req, res) => {
   const barcode = req.body?.barcode ? String(req.body.barcode).trim() : '';
   const charge = req.body?.charge ? String(req.body.charge).trim() : '';
+  const mhd = req.body?.mhd ? String(req.body.mhd).trim() : '';
   const bezeichnung = req.body?.bezeichnung ? String(req.body.bezeichnung).trim() : '';
 
-  if (!barcode && !charge && !bezeichnung) {
-    return res.status(400).json({ error: 'Bitte Barcode, Bezeichnung oder Chargennummer angeben' });
+  if (!barcode && !charge && !mhd && !bezeichnung) {
+    return res.status(400).json({ error: 'Bitte Barcode, Bezeichnung, MHD oder Chargennummer angeben' });
   }
 
   const product = barcode ? await lookupBarcode(barcode).catch(() => null) : null;
@@ -371,40 +454,68 @@ app.post('/api/check', async (req, res) => {
   const alleRueckrufe = [...testRecalls, ...recallCache];
   const kandidaten = findeKandidaten(name, alleRueckrufe);
 
+  // Die Meldungen tragen mehr verwertbare Angaben, als bisher weitergereicht
+  // wurden: MHD, Verpackungseinheit, Hersteller und die betroffenen
+  // Bundesländer. Letztere dienen ausdrücklich NICHT als Filter – wer an einer
+  // Landesgrenze wohnt oder etwas mitgebracht bekommt, wäre sonst ungewarnt.
+  // Sie werden nur angezeigt, damit der Mensch selbst einordnen kann.
   const kandidatenAusgabe = kandidaten.slice(0, 5).map(c => ({
     id: c.recall.id || c.recall.title,
     titel: c.recall.title,
+    produkt: c.recall.product || '',
+    hersteller: ersteZeile(c.recall.manufacturer),
     grund: c.recall.reason,
     chargen: c.recall.lotNumbers || '',
+    mhd: c.recall.bestBefore || '',
+    packung: c.recall.packaging || '',
+    laender: Array.isArray(c.recall.affectedStates) ? c.recall.affectedStates : [],
+    grenztEin: recallGrenztEin(c.recall),
     gemeldet: c.recall.published || null,
     score: Math.round(c.score * 100) / 100
   }));
 
   // ---- Fall A: Name vorhanden ------------------------------------------
   if (name) {
-    if (kandidaten.length && charge) {
-      const bestaetigt = kandidaten.find(c => recallContainsCharge(c.recall, charge));
+    if (kandidaten.length) {
+      // Eine Meldung ohne Charge und ohne MHD betrifft die ganze Produktion.
+      // Dann gibt es nichts zu vergleichen und der Namenstreffer genügt.
+      const pauschal = kandidaten.find(c => !recallGrenztEin(c.recall));
+      if (pauschal) {
+        return res.json({
+          status: 'treffer_bestaetigt',
+          barcode: barcode || null, charge: charge || null, mhd: mhd || null,
+          name, nameQuelle, produkt: product, treffer: pauschal.recall,
+          pauschal: true, kandidaten: kandidatenAusgabe
+        });
+      }
+    }
+
+    if (kandidaten.length && (charge || mhd)) {
+      const bestaetigt = kandidaten.find(c =>
+        (charge && recallContainsCharge(c.recall, charge)) ||
+        (mhd && recallContainsMhd(c.recall, mhd))
+      );
       if (bestaetigt) {
         return res.json({
           status: 'treffer_bestaetigt',
-          barcode: barcode || null, charge, name, nameQuelle,
-          produkt: product, treffer: bestaetigt.recall,
-          kandidaten: kandidatenAusgabe
+          barcode: barcode || null, charge: charge || null, mhd: mhd || null,
+          name, nameQuelle, produkt: product, treffer: bestaetigt.recall,
+          pauschal: false, kandidaten: kandidatenAusgabe
         });
       }
       return res.json({
         status: 'charge_weicht_ab',
-        barcode: barcode || null, charge, name, nameQuelle,
-        produkt: product, treffer: null,
+        barcode: barcode || null, charge: charge || null, mhd: mhd || null,
+        name, nameQuelle, produkt: product, treffer: null,
         kandidaten: kandidatenAusgabe
       });
     }
 
     if (kandidaten.length) {
-      // Name passt, Charge fehlt noch – nachfragen statt warnen.
+      // Name passt, Merkmal fehlt noch – nachfragen statt warnen.
       return res.json({
         status: 'rueckfrage',
-        barcode: barcode || null, charge: null, name, nameQuelle,
+        barcode: barcode || null, charge: null, mhd: null, name, nameQuelle,
         produkt: product, treffer: null,
         kandidaten: kandidatenAusgabe
       });
@@ -412,8 +523,8 @@ app.post('/api/check', async (req, res) => {
 
     return res.json({
       status: 'kein_rueckruf',
-      barcode: barcode || null, charge: charge || null, name, nameQuelle,
-      produkt: product, treffer: null, kandidaten: []
+      barcode: barcode || null, charge: charge || null, mhd: mhd || null,
+      name, nameQuelle, produkt: product, treffer: null, kandidaten: []
     });
   }
 
@@ -507,7 +618,7 @@ app.get('/api/purchases', (req, res) => {
 });
 
 app.post('/api/purchases', (req, res) => {
-  const { deviceId, barcode, name, charge, status } = req.body || {};
+  const { deviceId, barcode, name, charge, mhd, status } = req.body || {};
   if (!deviceId) return res.status(400).json({ error: 'deviceId fehlt' });
 
   const entry = {
@@ -516,6 +627,7 @@ app.post('/api/purchases', (req, res) => {
     barcode: barcode || '',
     name: name || 'Unbekanntes Produkt',
     charge: charge || '',
+    mhd: mhd || '',
     status: status || 'unklar',
     date: new Date().toISOString(),
     notified: []
@@ -588,27 +700,34 @@ app.post('/api/test/recall', async (req, res) => {
 // Bewertet einen gespeicherten Einkauf gegen eine Rückrufmeldung.
 // Ergebnis: 'bestaetigt', 'verdacht' oder null.
 function bewerteTreffer(purchase, recall) {
-  // Gleicher Barcode in der Meldung: eindeutig, da maschinell gelesen.
-  if (purchase.barcode && recall.barcode && purchase.barcode === recall.barcode) {
-    return 'bestaetigt';
-  }
+  // Hinweis: Früher stand hier ein Abgleich über recall.barcode. Die Auswertung
+  // der 223 echten Meldungen hat ergeben, dass die Quelle überhaupt kein
+  // Barcode- oder EAN-Feld liefert – der Zweig konnte nie zutreffen und ist
+  // deshalb entfallen.
 
   const nameTrifft =
-    purchase.name && recall.title &&
-    nameScore(purchase.name, recall.title) >= SIMILARITY_THRESHOLD;
+    purchase.name && besterNameScore(purchase.name, recall) >= SIMILARITY_THRESHOLD;
   const chargeTrifft =
     purchase.charge && purchase.charge !== '–' &&
     recallContainsCharge(recall, purchase.charge);
+  const mhdTrifft =
+    purchase.mhd && purchase.mhd !== '–' &&
+    recallContainsMhd(recall, purchase.mhd);
 
-  // Beide Stufen erfüllt: richtiges Produkt, richtige Charge.
-  if (nameTrifft && chargeTrifft) return 'bestaetigt';
+  if (!nameTrifft && !chargeTrifft && !mhdTrifft) return null;
+
+  // Die Meldung nennt kein Eingrenzungsmerkmal: betroffen ist die gesamte
+  // Produktion. Dann ist jeder Käufer dieses Produkts betroffen und es gibt
+  // nichts zu vergleichen – der Namenstreffer ist die Warnung.
+  if (nameTrifft && !recallGrenztEin(recall)) return 'bestaetigt';
+
+  // Richtiges Produkt und passendes Merkmal.
+  if (nameTrifft && (chargeTrifft || mhdTrifft)) return 'bestaetigt';
 
   // Nur eine Stufe: reicht für eine Warnung nicht aus, aber für eine Rückfrage.
-  // Der Name allein sagt nichts über die Charge, die Charge allein ist nicht
+  // Der Name allein sagt nichts über die Charge, und Chargennummern sind nicht
   // herstellerübergreifend eindeutig.
-  if (nameTrifft || chargeTrifft) return 'verdacht';
-
-  return null;
+  return 'verdacht';
 }
 
 async function matchPurchasesAgainstRecalls(newRecalls) {
