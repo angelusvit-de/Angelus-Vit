@@ -598,7 +598,7 @@
     <!-- SCAN VIEW -->
     <div class="view active" id="view-scan">
       <h2 class="section-title">Produkt prüfen</h2>
-      <p class="section-sub">Barcode und Chargennummer eingeben. Der Abgleich läuft live gegen Open Food Facts und die aktuellen Rückrufe von lebensmittelwarnung.de.</p>
+      <p class="section-sub">Barcode scannen und das Mindesthaltbarkeitsdatum von der Packung eintragen. Der Abgleich läuft live gegen Open Food Facts und die aktuellen Rückrufe von lebensmittelwarnung.de.</p>
 
       <div style="display:none;">
         <label for="input-backend">Backend-Adresse</label>
@@ -614,8 +614,17 @@
       <input type="text" id="input-name" placeholder="z. B. Kölln Zauberfleks Schoko">
       <p class="section-sub" style="margin-top:-8px;">Wird nach dem Scan automatisch gefüllt. Ist das Produkt unbekannt, trag den Namen von der Packung ein.</p>
 
-      <label for="input-charge">Chargennummer (auf der Verpackung)</label>
+      <!-- MHD vor der Charge, weil es das häufigere und besser lesbare Merkmal
+           ist: In den 223 amtlichen Meldungen nennen 204 ein MHD, aber nur 155
+           eine Chargennummer. Nach § 2 Los-Kennzeichnungs-Verordnung darf das
+           MHD die Losnummer sogar ersetzen – auf vielen Packungen steht dann
+           gar keine Charge, und wer danach sucht, sucht vergeblich. -->
+      <label for="input-mhd">Mindesthaltbarkeitsdatum (auf der Verpackung)</label>
+      <input type="text" id="input-mhd" inputmode="numeric" placeholder="z. B. 14.11.2026">
+
+      <label for="input-charge">Chargennummer, falls vorhanden</label>
       <input type="text" id="input-charge" placeholder="z. B. L2456A">
+      <p class="section-sub" style="margin-top:-8px;">Steht meist neben dem MHD. Fehlt auf vielen Packungen – dann genügt das Datum.</p>
 
       <button class="primary" onclick="checkProduct()">Prüfen</button>
 
@@ -1149,22 +1158,44 @@
   // ---------------------------------------------------------------------
   // Kandidatenliste – bewusst neutral dargestellt, ohne Hervorhebung,
   // damit niemand zu einem Treffer hingelenkt wird.
+  // Zeigt zu jeder Meldung die Merkmale, mit denen sich die betroffene Ware
+  // eingrenzen lässt. Die Bundesländer dienen ausdrücklich NICHT zum
+  // Wegfiltern: Wer an einer Landesgrenze einkauft oder etwas mitgebracht
+  // bekommt, wäre sonst ungewarnt. Sie stehen da, damit der Mensch selbst
+  // einordnen kann.
   function kandidatenListe(kandidaten) {
     if (!kandidaten || !kandidaten.length) return '';
-    return kandidaten.map(k => `
+    return kandidaten.map(k => {
+      const zeilen = [];
+      if (k.hersteller) zeilen.push('Hersteller: ' + k.hersteller);
+      if (k.packung)    zeilen.push('Packung: ' + k.packung);
+      if (k.mhd)        zeilen.push('MHD: ' + String(k.mhd).replace(/\s*\n\s*/g, ' / '));
+      if (k.chargen)    zeilen.push('Charge: ' + String(k.chargen).replace(/\s*\n\s*/g, ' / '));
+      if (k.laender && k.laender.length) {
+        zeilen.push(k.laender.length >= 16
+          ? 'Ausgeliefert: bundesweit'
+          : 'Ausgeliefert: ' + k.laender.join(', '));
+      }
+      if (k.grenztEin === false) {
+        zeilen.push('Keine Charge und kein MHD genannt – die gesamte Produktion ist betroffen.');
+      }
+      return `
       <div class="kandidat">
         <div class="kandidat-titel">${k.titel}</div>
-        <div class="kandidat-meta">${k.grund || 'Grund nicht angegeben'}${k.chargen ? ' · Charge(n) ' + k.chargen : ''}</div>
-      </div>`).join('');
+        <div class="kandidat-meta">${k.grund || 'Grund nicht angegeben'}</div>
+        ${zeilen.map(z => `<div class="kandidat-meta">${z}</div>`).join('')}
+      </div>`;
+    }).join('');
   }
 
   async function checkProduct() {
     const barcode = document.getElementById('input-barcode').value.trim();
     const charge = document.getElementById('input-charge').value.trim();
+    const mhd = document.getElementById('input-mhd').value.trim();
     const bezeichnung = document.getElementById('input-name').value.trim();
     const slot = document.getElementById('result-slot');
 
-    if (!barcode && !charge && !bezeichnung) {
+    if (!barcode && !charge && !mhd && !bezeichnung) {
       slot.innerHTML = '';
       return;
     }
@@ -1176,7 +1207,7 @@
       const res = await fetch(`${apiBase}/api/check`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ barcode, charge, bezeichnung })
+        body: JSON.stringify({ barcode, charge, mhd, bezeichnung })
       });
       data = await res.json();
     } catch (err) {
@@ -1197,13 +1228,21 @@
     let html;
     let listenStatus;
 
+    const merkmal = [mhd && 'MHD ' + mhd, charge && 'Charge ' + charge]
+      .filter(Boolean).join(', ');
+
     if (data.status === 'treffer_bestaetigt') {
       const r = data.treffer;
       listenStatus = 'warn';
+      // Nennt die Meldung weder Charge noch MHD, ist die ganze Produktion
+      // betroffen – dann gibt es nichts zu vergleichen und der Produktname
+      // allein ist bereits die Warnung.
       html = `<div class="result warn">
         <div class="result-head">Rückruf bestätigt</div>
-        <p><strong>${name}</strong>, Charge ${charge}</p>
-        <p>Produktname und Chargennummer stimmen mit einer aktiven Meldung überein.</p>
+        <p><strong>${name}</strong>${merkmal ? ', ' + merkmal : ''}</p>
+        <p>${data.pauschal
+          ? 'Diese Meldung nennt weder Charge noch Mindesthaltbarkeitsdatum – betroffen ist die gesamte Produktion. Das Produkt ist damit unabhängig von der Packung betroffen.'
+          : 'Produktname und Angabe von der Verpackung stimmen mit einer aktiven Meldung überein.'}</p>
         <p>Gemeldeter Grund: ${r.reason || 'keine Angabe'}</p>
         <a class="clinic-btn" href="tel:+491234567890">Klinik anrufen</a>
         <div class="meta">Gemeldet am ${r.published ? new Date(r.published).toLocaleDateString('de-DE') : '–'} · Quelle: lebensmittelwarnung.de</div>
@@ -1212,9 +1251,9 @@
     } else if (data.status === 'charge_weicht_ab') {
       listenStatus = 'safe';
       html = `<div class="result safe">
-        <div class="result-head">Diese Charge ist nicht betroffen</div>
-        <p><strong>${name}</strong>, Charge ${charge}</p>
-        <p>Es gibt Meldungen zu einem ähnlichen Produkt, aber keine nennt diese Chargennummer. Prüfe die Nummer auf der Verpackung noch einmal, wenn du unsicher bist.</p>
+        <div class="result-head">Diese Packung ist nicht betroffen</div>
+        <p><strong>${name}</strong>${merkmal ? ', ' + merkmal : ''}</p>
+        <p>Es gibt Meldungen zu einem ähnlichen Produkt, aber keine nennt dieses Datum oder diese Charge. Vergleiche die Angaben unten noch einmal mit deiner Verpackung, wenn du unsicher bist.</p>
         <div class="kandidaten-block">
           <div class="kandidaten-label">Gemeldet sind:</div>
           ${kandidatenListe(data.kandidaten)}
@@ -1226,11 +1265,11 @@
       html = `<div class="result ask">
         <div class="result-head ask-head">Könnte eines dieser Produkte sein</div>
         <p><strong>${name}</strong></p>
-        <p>Um das zu entscheiden, wird die Chargennummer gebraucht. Sie steht meist neben dem Mindesthaltbarkeitsdatum.</p>
+        <p>Um das zu entscheiden, wird das Mindesthaltbarkeitsdatum von der Verpackung gebraucht. Es steht meist auf dem Deckel oder der Unterseite.</p>
         <div class="kandidaten-block">
           ${kandidatenListe(data.kandidaten)}
         </div>
-        <p style="margin-top:10px;">Trag die Chargennummer oben ein und prüfe erneut.</p>
+        <p style="margin-top:10px;">Trag das MHD oben ein und prüfe erneut. Eine Chargennummer hilft zusätzlich, fehlt aber auf vielen Packungen.</p>
       </div>`;
 
     } else if (data.status === 'nur_charge_hinweis') {
@@ -1278,6 +1317,7 @@
       barcode: barcode || '–',
       name,
       charge: charge || '–',
+      mhd: mhd || '–',
       status: listenStatus,
       date: new Date().toLocaleDateString('de-DE'),
       serverId: null
@@ -1290,6 +1330,7 @@
       barcode,
       name,
       charge,
+      mhd,
       status: eintrag.status
     }).then(serverId => {
       if (serverId) {
@@ -1318,6 +1359,7 @@
           body: JSON.stringify({
             barcode: p.barcode === '–' ? '' : p.barcode,
             charge: p.charge === '–' ? '' : p.charge,
+            mhd: (p.mhd && p.mhd !== '–') ? p.mhd : '',
             bezeichnung: p.name && p.name !== 'Unbekanntes Produkt' ? p.name : ''
           })
         });
