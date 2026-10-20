@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Einkauf erfassen – Angelus Vit</title>
+<meta name="theme-color" content="#143f3a">
+<style>
+  /* Geführter Durchlauf: ein Schritt, eine Anweisung, ein Handgriff.
+     Die Anweisung steht groß über dem Bild, damit niemand überlegen muss,
+     was gerade erwartet wird. */
+  :root{
+    --grund:#f4f7f6; --karte:#fff; --tinte:#13201f; --weich:#3f5553;
+    --leise:#6b807e; --linie:#dde5e3; --linie-stark:#c2d0cd;
+    --gruen:#1f5c56; --gruen-tief:#143f3a; --gruen-zart:#e6efed;
+    --signal:#a8431f; --signal-zart:#f7e9e3; --gelb:#b4820f;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --grund:#0c1716; --karte:#13211f; --tinte:#e7efed; --weich:#bdcecb;
+      --leise:#8ca29f; --linie:#243a37; --linie-stark:#334d49;
+      --gruen:#6fb3a6; --gruen-tief:#8fc9bc; --gruen-zart:#17302c;
+      --signal:#e08d6b; --signal-zart:#2d1b14; --gelb:#d9ab4a;
+      color-scheme: dark;
+    }
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--grund); color:var(--tinte);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.5; -webkit-font-smoothing:antialiased;
+    padding-left:max(0px, env(safe-area-inset-left, 0px));
+    padding-right:max(0px, env(safe-area-inset-right, 0px));
+  }
+  header{ background:var(--gruen-tief); color:#fff; padding:14px 20px; }
+  @media (prefers-color-scheme: dark){ header{ background:#13211f; } }
+  header h1{ margin:0; font-size:17px; font-weight:600; }
+  header a{ color:#fff; opacity:.8; font-size:13px; text-decoration:none; }
+
+  main{ max-width:600px; margin:0 auto; padding:16px; }
+  .karte{ background:var(--karte); border:1px solid var(--linie);
+          border-radius:12px; padding:16px; margin-bottom:12px; }
+
+  /* ---------------------------------------------------- Anweisung */
+  .schritt{ display:flex; align-items:center; gap:11px; margin-bottom:12px; }
+  .schritt-nr{
+    width:30px; height:30px; flex:0 0 auto; border-radius:50%;
+    background:var(--gruen); color:#fff; display:flex; align-items:center;
+    justify-content:center; font-weight:700; font-size:15px;
+  }
+  .schritt-text{ font-size:19px; font-weight:600; line-height:1.25; }
+  .schritt-hilfe{ font-size:14px; color:var(--leise); margin:0 0 12px 41px; }
+
+  /* ---------------------------------------------------- Kamera */
+  #buehne{ position:relative; border-radius:10px; overflow:hidden;
+           background:#000; display:none; }
+  #buehne video{ width:100%; display:block; max-height:52vh; object-fit:cover; }
+  #rahmen{
+    position:absolute; left:12%; right:12%; top:38%; height:20%;
+    border:2.5px solid #fff; border-radius:7px; display:none;
+    box-shadow:0 0 0 9999px rgba(0,0,0,.42);
+  }
+  #rahmen span{
+    position:absolute; left:0; right:0; bottom:-27px; text-align:center;
+    color:#fff; font-size:12.5px; text-shadow:0 1px 3px #000;
+  }
+  #buehne.blitz::after{ content:""; position:absolute; inset:0;
+    background:#fff; animation:blitz .22s ease-out; }
+  @keyframes blitz{ from{opacity:.8} to{opacity:0} }
+
+  button{
+    font:inherit; cursor:pointer; border-radius:10px; padding:13px 16px;
+    border:1px solid var(--linie-stark); background:var(--karte);
+    color:var(--tinte); width:100%;
+  }
+  button.haupt{ background:var(--gruen); border-color:var(--gruen);
+                color:#fff; font-weight:600; }
+  button:disabled{ opacity:.45; cursor:default; }
+  .reihe{ display:flex; gap:9px; margin-top:10px; }
+  .reihe button{ flex:1; }
+
+  label{ display:block; font-size:13px; color:var(--leise); margin-bottom:5px; }
+  input{
+    font:inherit; width:100%; padding:13px; border-radius:10px;
+    border:1px solid var(--linie-stark); background:var(--karte);
+    color:var(--tinte); margin-bottom:12px;
+  }
+  input.gefunden{ border-color:var(--gruen); background:var(--gruen-zart); }
+
+  .status{ font-size:14px; color:var(--leise); margin:10px 0 0; min-height:1.4em; }
+  .status.arbeitet{ color:var(--gelb); }
+  .status.fehler{ color:var(--signal); }
+
+  /* ---------------------------------------------------- Liste */
+  .zaehler{ display:flex; gap:18px; align-items:baseline; }
+  .zahl{ font-size:30px; font-weight:700; color:var(--gruen); line-height:1; }
+  .zahl-label{ font-size:13px; color:var(--leise); }
+  ul{ list-style:none; margin:12px 0 0; padding:0; display:flex;
+      flex-direction:column; gap:7px; max-height:260px; overflow-y:auto; }
+  li{ border:1px solid var(--linie); border-radius:9px; padding:9px 11px;
+      font-size:14px; }
+  li b{ display:block; font-size:14.5px; }
+  li span{ color:var(--leise); font-size:12.5px; }
+
+  .quote{ margin-top:12px; padding-top:11px; border-top:1px solid var(--linie);
+          font-size:13px; color:var(--leise); }
+  .quote b{ color:var(--tinte); }
+
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Einkauf erfassen</h1>
+  <a href="index.html">← zur App</a>
+</header>
+
+<main>
+
+  <!-- ------------------------------------------------ Arbeitsbereich -->
+  <div class="karte" id="arbeit">
+    <div class="schritt">
+      <div class="schritt-nr" id="nr">1</div>
+      <div class="schritt-text" id="anweisung">Kamera starten</div>
+    </div>
+    <p class="schritt-hilfe" id="hilfe">
+      Nimm den Einkauf auf den Tisch. Du gehst Produkt für Produkt durch —
+      die App sagt dir jedes Mal, was als Nächstes dran ist.
+    </p>
+
+    <div id="buehne">
+      <div id="halter"></div>
+      <div id="rahmen"><span>Datum in den Rahmen halten</span></div>
+    </div>
+
+    <!-- Bestätigungsschritt -->
+    <div id="pruefen" hidden>
+      <label for="feld-name">Produkt</label>
+      <input id="feld-name" placeholder="wird geladen …">
+      <label for="feld-mhd">Mindesthaltbarkeitsdatum</label>
+      <input id="feld-mhd" inputmode="numeric" placeholder="TT.MM.JJJJ">
+      <div class="reihe">
+        <button class="haupt" id="btn-uebernehmen">Übernehmen</button>
+        <button id="btn-verwerfen">Verwerfen</button>
+      </div>
+    </div>
+
+    <div class="reihe" id="knoepfe">
+      <button class="haupt" id="btn-start">Kamera starten</button>
+      <button id="btn-ueberspringen" hidden>Datum überspringen</button>
+      <button id="btn-stop" hidden>Beenden</button>
+    </div>
+
+    <p class="status" id="status"></p>
+  </div>
+
+  <!-- ------------------------------------------------ Erfasstes -->
+  <div class="karte">
+    <div class="zaehler">
+      <span class="zahl" id="anzahl">0</span>
+      <span class="zahl-label">Produkte erfasst</span>
+    </div>
+    <ul id="liste"></ul>
+    <div class="quote" id="quote">
+      Datumserkennung: noch keine Messung. Die App zählt selbst mit, wie oft
+      das Datum gefunden wurde und wie oft du es korrigieren musstest.
+    </div>
+  </div>
+
+</main>
+
+<!-- Barcode-Erkennung: dieselbe Engine wie in der App -->
+<script type="module">
+  import { BarcodeDetector } from "https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js";
+  window.__BarcodeDetector = BarcodeDetector;
+  window.dispatchEvent(new Event('barcode-bereit'));
+</script>
+
+<script>
+(function(){
+  'use strict';
+
+  var API = (location.protocol !== 'file:' && location.origin)
+    ? location.origin.replace(/\/$/, '')
+    : 'https://angelus-vit-backend.onrender.com';
+
+  var FORMATE = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','itf'];
+
+  // Schritte: 'aus' → 'barcode' → 'mhd' → 'pruefen' → zurück zu 'barcode'
+  var schritt = 'aus';
+  var stream = null, video = null, laufend = false;
+  var aktuell = null;            // { barcode, name, mhd, mhdAuto }
+  var erfasst = [];
+  var ocrLaeuft = false, ocrWorker = null, ocrFehlt = false;
+  var kandidaten = {};           // erkannte Datumsvarianten → Häufigkeit
+
+  var messung = lade('angelusvit.erfassung.messung', { gesamt:0, erkannt:0, korrigiert:0 });
+
+  var el = function(id){ return document.getElementById(id); };
+
+  function lade(schluessel, standard){
+    try { return JSON.parse(localStorage.getItem(schluessel)) || standard; }
+    catch (e) { return standard; }
+  }
+  function sichere(schluessel, wert){
+    try { localStorage.setItem(schluessel, JSON.stringify(wert)); } catch (e) {}
+  }
+
+  function geraetId(){
+    var id = null;
+    try { id = localStorage.getItem('angelus-device-id'); } catch (e) {}
+    if (!id) {
+      id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { localStorage.setItem('angelus-device-id', id); } catch (e) {}
+    }
+    return id;
+  }
+
+  // ------------------------------------------------------- Anweisungstext
+
+  var TEXTE = {
+    aus:      { nr:'1', an:'Kamera starten',
+                hilfe:'Nimm den Einkauf auf den Tisch. Du gehst Produkt für Produkt durch — die App sagt dir jedes Mal, was als Nächstes dran ist.' },
+    barcode:  { nr:'1', an:'Scanne den Barcode',
+                hilfe:'Halte die Strichcode-Seite vor die Kamera. Sobald es piept, ist das Produkt erfasst.' },
+    mhd:      { nr:'2', an:'Scanne das Mindesthaltbarkeitsdatum',
+                hilfe:'Halte das Datum in den weißen Rahmen. Es steht meist neben dem Barcode, auf dem Deckel oder am Boden.' },
+    pruefen:  { nr:'3', an:'Stimmt das?',
+                hilfe:'Beides lässt sich hier noch ändern. Danach geht es mit dem nächsten Produkt weiter.' }
+  };
+
+  function zeigeSchritt(s){
+    schritt = s;
+    var t = TEXTE[s];
+    el('nr').textContent = t.nr;
+    el('anweisung').textContent = t.an;
+    el('hilfe').textContent = t.hilfe;
+
+    el('rahmen').style.display   = (s === 'mhd') ? 'block' : 'none';
+    el('pruefen').hidden         = (s !== 'pruefen');
+    // Das Bild bleibt auch beim Bestätigen sichtbar: display:none lässt Safari
+    // die Kamera einfrieren, und ein Neustart pro Produkt wäre zäh.
+    el('buehne').style.display   = (s === 'aus') ? 'none' : 'block';
+    el('btn-start').hidden       = (s !== 'aus');
+    el('btn-stop').hidden        = (s === 'aus' || s === 'pruefen');
+    el('btn-ueberspringen').hidden = (s !== 'mhd');
+    if (s !== 'mhd') setStatus('');
+  }
+
+  function setStatus(text, art){
+    var n = el('status');
+    n.textContent = text || '';
+    n.className = 'status' + (art ? ' ' + art : '');
+  }
+
+  // ------------------------------------------------------- Kamera
+
+  function engine(){ return window.BarcodeDetector || window.__BarcodeDetector || null; }
+
+  function warteAufEngine(ms){
+    if (engine()) return Promise.resolve(true);
+    return new Promise(function(fertig){
+      var los = function(){ fertig(!!engine()); };
+      window.addEventListener('barcode-bereit', los, { once:true });
+      setTimeout(los, ms || 9000);
+    });
+  }
+
+  async function kameraAn(){
+    if (stream) return;
+    setStatus('Kamera wird gestartet …', 'arbeitet');
+    try {
+      if (!(await warteAufEngine())) throw new Error('Barcode-Erkennung nicht ladbar');
+
+      // Für iOS bei jedem Start ein frisches <video>-Element.
+      var halter = el('halter');
+      halter.innerHTML = '';
+      video = document.createElement('video');
+      video.setAttribute('playsinline',''); video.muted = true;
+      halter.appendChild(video);
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode:{ ideal:'environment' }, width:{ ideal:1920 }, height:{ ideal:1080 } },
+        audio:false
+      });
+      video.srcObject = stream;
+      await video.play();
+
+      laufend = true;
+      setStatus('');
+      neuesProdukt();
+      schleife();
+    } catch (err) {
+      // Erst zurücksetzen, dann melden – sonst löscht der Reset die Meldung.
+      kameraAus();
+      setStatus('Kamera nicht verfügbar (' + (err.name || err.message) + ').', 'fehler');
+    }
+  }
+
+  function kameraAus(){
+    laufend = false;
+    if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+    el('halter').innerHTML = '';
+    video = null;
+    zeigeSchritt('aus');
+  }
+
+  function rueckmeldung(){
+    var b = el('buehne');
+    b.classList.remove('blitz'); void b.offsetWidth; b.classList.add('blitz');
+    if (navigator.vibrate) navigator.vibrate(45);
+  }
+
+  function neuesProdukt(){
+    aktuell = null;
+    kandidaten = {};
+    zeigeSchritt('barcode');
+  }
+
+  // ------------------------------------------------------- Hauptschleife
+
+  async function schleife(){
+    var Detector = engine();
+    var detector = new Detector({ formats: FORMATE });
+    var letzterOcr = 0;
+
+    while (laufend && stream && video) {
+      try {
+        if (video.readyState >= 2) {
+
+          if (schritt === 'barcode') {
+            var codes = await detector.detect(video);
+            if (codes && codes.length && codes[0].rawValue) {
+              barcodeErkannt(String(codes[0].rawValue).replace(/\D/g,''));
+            }
+
+          } else if (schritt === 'mhd' && !ocrLaeuft && Date.now() - letzterOcr > 650) {
+            letzterOcr = Date.now();
+            datumVersuchen();   // bewusst ohne await: die Schleife läuft weiter
+          }
+        }
+      } catch (e) { /* Einzelbild unbrauchbar */ }
+      await new Promise(function(r){ setTimeout(r, 110); });
+    }
+  }
+
+  function barcodeErkannt(code){
+    if (!code || code.length < 8) return;
+    if (erfasst.some(function(p){ return p.barcode === code; })) {
+      setStatus('Dieses Produkt ist schon erfasst.', 'arbeitet');
+      return;
+    }
+    aktuell = { barcode: code, name: '', mhd: '', mhdAuto: false };
+    rueckmeldung();
+    zeigeSchritt('mhd');
+    setStatus('Datum wird gesucht …', 'arbeitet');
+    nameLaden(code);     // läuft im Hintergrund, während das Datum gescannt wird
+    ocrVorbereiten();
+  }
+
+  async function nameLaden(code){
+    try {
+      var res = await fetch(API + '/api/lookup?barcode=' + encodeURIComponent(code));
+      if (!res.ok) return;
+      var p = await res.json();
+      if (aktuell && aktuell.barcode === code) aktuell.name = p.name || '';
+      el('feld-name').value = (aktuell && aktuell.name) || '';
+    } catch (e) { /* Produkt bleibt namenlos, der Mensch trägt ihn ein */ }
+  }
+
+  // ------------------------------------------------------- Datumserkennung
+
+  function ocrVorbereiten(){
+    if (ocrWorker || ocrFehlt) return;
+    if (!window.Tesseract) {
+      // Bibliothek erst laden, wenn sie zum ersten Mal gebraucht wird.
+      var s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.0/tesseract.min.js';
+      s.onload = ocrStarten;
+      s.onerror = function(){ ocrFehlt = true; setStatus('Datumserkennung nicht verfügbar – bitte eintragen.', 'fehler'); };
+      document.head.appendChild(s);
+    } else {
+      ocrStarten();
+    }
+  }
+
+  async function ocrStarten(){
+    if (ocrWorker || ocrFehlt) return;
+    try {
+      ocrWorker = await Tesseract.createWorker('eng');
+      // Nur Ziffern und Trennzeichen zulassen und als eine Zeile lesen –
+      // ein MHD ist ein sehr enges Ziel, das hebt die Treffsicherheit stark.
+      await ocrWorker.setParameters({
+        tessedit_char_whitelist: '0123456789./- ',
+        tessedit_pageseg_mode: '7'
+      });
+    } catch (e) {
+      ocrFehlt = true;
+      setStatus('Datumserkennung nicht verfügbar – bitte eintragen.', 'fehler');
+    }
+  }
+
+  // Schneidet den Rahmenbereich aus dem Videobild und hebt den Kontrast an.
+  function ausschnitt(){
+    var vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    var x = vw * 0.12, b = vw * 0.76;
+    var y = vh * 0.38, h = vh * 0.20;
+
+    var c = document.createElement('canvas');
+    c.width = Math.round(b * 2);        // hochskalieren hilft der Erkennung
+    c.height = Math.round(h * 2);
+    var ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(video, x, y, b, h, 0, 0, c.width, c.height);
+
+    var bild = ctx.getImageData(0, 0, c.width, c.height);
+    var d = bild.data;
+    for (var i = 0; i < d.length; i += 4) {
+      var grau = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      var stark = (grau - 128) * 1.9 + 128;   // Kontrast spreizen
+      stark = stark < 0 ? 0 : stark > 255 ? 255 : stark;
+      d[i] = d[i+1] = d[i+2] = stark;
+    }
+    ctx.putImageData(bild, 0, 0);
+    return c;
+  }
+
+  // Ein MHD liegt in der Zukunft und selten mehr als sechs Jahre voraus.
+  // Alles andere ist Fehlerkennung und fliegt raus, bevor es jemand sieht.
+  function datumPlausibel(t, m, j){
+    if (m < 1 || m > 12 || t < 1 || t > 31) return false;
+    var d = new Date(j, m - 1, t);
+    if (d.getFullYear() !== j || d.getMonth() !== m - 1 || d.getDate() !== t) return false;
+    var heute = new Date(); heute.setHours(0,0,0,0);
+    var grenze = new Date(); grenze.setFullYear(grenze.getFullYear() + 6);
+    return d >= new Date(heute.getTime() - 86400000 * 60) && d <= grenze;
+  }
+
+  function datumAusText(text){
+    var treffer = [];
+    var re = /(\d{1,2})\s*[.\/\-]\s*(\d{1,2})\s*[.\/\-]\s*(\d{2,4})/g, m;
+    while ((m = re.exec(text)) !== null) {
+      var t = +m[1], mo = +m[2], j = +m[3];
+      if (j < 100) j += 2000;
+      if (datumPlausibel(t, mo, j)) {
+        treffer.push(String(t).padStart(2,'0') + '.' + String(mo).padStart(2,'0') + '.' + j);
+      }
+    }
+    return treffer;
+  }
+
+  async function datumVersuchen(){
+    if (!ocrWorker || ocrLaeuft || !video) return;
+    ocrLaeuft = true;
+    try {
+      var c = ausschnitt();
+      if (c) {
+        var r = await ocrWorker.recognize(c);
+        var gefunden = datumAusText((r && r.data && r.data.text) || '');
+        gefunden.forEach(function(d){ kandidaten[d] = (kandidaten[d] || 0) + 1; });
+
+        // Erst wenn dasselbe Datum zweimal gelesen wurde, wird es übernommen.
+        // Ein einzelner Treffer ist zu oft ein Zufallsfund.
+        for (var d in kandidaten) {
+          if (kandidaten[d] >= 2) { datumUebernehmen(d, true); break; }
+        }
+      }
+    } catch (e) { /* Einzelversuch gescheitert */ }
+    ocrLaeuft = false;
+  }
+
+  function datumUebernehmen(datum, automatisch){
+    if (!aktuell || schritt !== 'mhd') return;
+    aktuell.mhd = datum || '';
+    aktuell.mhdAuto = !!automatisch;
+    if (automatisch) rueckmeldung();
+    el('feld-mhd').value = aktuell.mhd;
+    el('feld-mhd').className = automatisch ? 'gefunden' : '';
+    el('feld-name').value = aktuell.name || '';
+    zeigeSchritt('pruefen');
+  }
+
+  // ------------------------------------------------------- Bedienung
+
+  el('btn-start').addEventListener('click', kameraAn);
+  el('btn-stop').addEventListener('click', kameraAus);
+  el('btn-ueberspringen').addEventListener('click', function(){ datumUebernehmen('', false); });
+  el('btn-verwerfen').addEventListener('click', neuesProdukt);
+
+  el('btn-uebernehmen').addEventListener('click', function(){
+    if (!aktuell) return;
+    var name = el('feld-name').value.trim();
+    var mhd  = el('feld-mhd').value.trim();
+
+    // Zählwerk: Wurde das Datum automatisch gefunden, und hat der Mensch es
+    // danach noch ändern müssen? Daraus ergibt sich die echte Trefferquote.
+    messung.gesamt++;
+    if (aktuell.mhdAuto) {
+      messung.erkannt++;
+      if (mhd !== aktuell.mhd) messung.korrigiert++;
+    }
+    sichere('angelusvit.erfassung.messung', messung);
+
+    erfasst.unshift({ barcode: aktuell.barcode, name: name || 'Unbekanntes Produkt', mhd: mhd });
+    zeichne();
+    speichern(aktuell.barcode, name, mhd);
+    neuesProdukt();
+  });
+
+  async function speichern(barcode, name, mhd){
+    try {
+      await fetch(API + '/api/purchases', {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          deviceId: geraetId(), barcode: barcode,
+          name: name || 'Unbekanntes Produkt', mhd: mhd, charge: '', status: 'unklar'
+        })
+      });
+    } catch (e) { /* offline – der Eintrag bleibt wenigstens in der Liste */ }
+  }
+
+  function zeichne(){
+    el('anzahl').textContent = erfasst.length;
+    el('liste').innerHTML = erfasst.map(function(p){
+      return '<li><b>' + escape(p.name) + '</b><span>' +
+             escape(p.barcode) + (p.mhd ? ' · MHD ' + escape(p.mhd) : ' · kein Datum') +
+             '</span></li>';
+    }).join('');
+
+    if (messung.gesamt) {
+      var q = Math.round(messung.erkannt / messung.gesamt * 100);
+      var f = messung.erkannt ? Math.round(messung.korrigiert / messung.erkannt * 100) : 0;
+      el('quote').innerHTML =
+        'Datumserkennung über <b>' + messung.gesamt + '</b> Produkte: in <b>' + q +
+        ' %</b> automatisch gefunden' +
+        (messung.erkannt ? ', davon <b>' + f + ' %</b> nachträglich korrigiert' : '') + '.';
+    }
+  }
+
+  function escape(s){
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  zeigeSchritt('aus');
+  zeichne();
+})();
+</script>
+
+</body>
+</html>
