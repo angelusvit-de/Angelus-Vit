@@ -1,312 +1,1616 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Angelus Vit — Rückrufwarnung für immungeschwächte Patienten</title>
-<meta name="description" content="Angelus Vit warnt immungeschwächte Patientinnen und Patienten, wenn ein bereits gekauftes Lebensmittel zurückgerufen wird. Prototyp, Projektstand September 2026.">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Angelus Vit – Prototyp</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Angelus Vit">
 <meta name="theme-color" content="#1F5C56">
-<link rel="canonical" href="https://angelusvit.de/">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Lora:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F4F7F6;
+    --surface: #FFFFFF;
+    --ink: #16262B;
+    --muted: #5B6B6E;
+    --line: #DCE4E2;
+    --primary: #1F5C56;
+    --primary-dark: #143F3A;
+    --warn-bg: #FBEAE4;
+    --warn-border: #C1442C;
+    --warn-text: #7A2A1B;
+    --safe-bg: #E9F3EC;
+    --safe-border: #3F7D5C;
+    --safe-text: #285C3F;
+    --neutral-bg: #EFF2F1;
+  }
 
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://angelusvit.de/">
-<meta property="og:title" content="Angelus Vit — Rückrufwarnung für immungeschwächte Patienten">
-<meta property="og:description" content="Rückrufe erreichen die Menschen nicht, für die sie gefährlich sind. Angelus Vit schließt diese Lücke.">
-<meta property="og:locale" content="de_DE">
+  * { box-sizing: border-box; }
 
-<link rel="stylesheet" href="stil.css">
+  body {
+    margin: 0;
+    background: #DDE5E2;
+    font-family: 'Inter', sans-serif;
+    color: var(--ink);
+    display: flex;
+    justify-content: center;
+    padding: 32px 12px;
+    min-height: 100vh;
+  }
+
+  .phone {
+    width: 390px;
+    max-width: 100%;
+    background: var(--bg);
+    border-radius: 28px;
+    box-shadow: 0 20px 50px rgba(20, 40, 38, 0.18);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-height: 720px;
+    position: relative;
+  }
+
+  header {
+    background: var(--primary);
+    color: #fff;
+    padding: 22px 20px 18px;
+  }
+
+  header .logotype {
+    font-family: 'Lora', serif;
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: 0.2px;
+  }
+
+  header .tagline {
+    margin-top: 4px;
+    font-size: 12.5px;
+    color: rgba(255,255,255,0.78);
+  }
+
+  #banner {
+    display: none;
+    background: var(--warn-text);
+    color: #fff;
+    padding: 12px 20px;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  #banner strong { display:block; margin-bottom:2px; font-size: 13.5px; }
+
+  main {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h2.section-title {
+    font-family: 'Lora', serif;
+    font-weight: 600;
+    font-size: 17px;
+    margin: 0 0 4px;
+  }
+  p.section-sub {
+    margin: 0 0 18px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  input[type="text"]:focus {
+    outline: none;
+    border-color: var(--primary);
+  }
+
+  .demo-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 18px;
+  }
+  .chip {
+    font-size: 11.5px;
+    padding: 6px 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--primary-dark);
+  }
+  .chip:hover { border-color: var(--primary); }
+
+  button.primary {
+    width: 100%;
+    padding: 12px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  button.primary:hover { background: var(--primary-dark); }
+
+  .button-secondary {
+    width: 100%;
+    padding: 11px;
+    background: #fff;
+    color: var(--primary);
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 14px;
+    font-family: 'Inter', sans-serif;
+  }
+  .button-secondary:hover { background: var(--bg); }
+
+  .scanner-overlay {
+    display: none;
+    flex-direction: column;
+    position: absolute;
+    inset: 0;
+    background: #0B1716;
+    z-index: 50;
+    color: #fff;
+  }
+  .scanner-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 18px 12px;
+    font-family: 'Lora', serif;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .scanner-close {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: #fff;
+    font-size: 16px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  #video-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background: #000;
+  }
+  #video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .scanner-hint {
+    text-align: center;
+    font-size: 12px;
+    color: rgba(255,255,255,0.72);
+    padding: 12px 24px 4px;
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .scanner-error {
+    text-align: center;
+    font-size: 12px;
+    color: #F3B3A3;
+    padding: 4px 24px 8px;
+    min-height: 14px;
+    flex-shrink: 0;
+  }
+  .scanner-manual-btn {
+    margin: 0 24px 10px;
+    padding: 11px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.4);
+    color: #fff;
+    border-radius: 7px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    flex-shrink: 0;
+  }
+  .scanner-manual-btn:last-of-type { margin-bottom: 22px; }
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .page-btn {
+    padding: 9px 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-size: 12.5px;
+    color: var(--primary-dark);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+  .page-btn:hover:not(:disabled) { border-color: var(--primary); }
+  .page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .page-indicator {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .scanner-manual-btn:hover { background: rgba(255,255,255,0.08); }
+
+  .modal-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(11, 23, 22, 0.72);
+    z-index: 80;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 22px 20px 20px;
+    width: 100%;
+    max-width: 320px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.3);
+  }
+  .modal-title {
+    font-family: 'Lora', serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--warn-text);
+    margin-bottom: 10px;
+  }
+  .modal-product {
+    margin: 0 0 14px;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 10px 12px;
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: 8px;
+    line-height: 1.4;
+  }
+  .modal-question {
+    margin: 0 0 16px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+  .modal-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 14.5px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    border: 1px solid var(--line);
+  }
+  .modal-btn-yes {
+    background: var(--warn-border);
+    border-color: var(--warn-border);
+    color: #fff;
+  }
+  .modal-btn-no {
+    background: var(--surface);
+    color: var(--ink);
+  }
+  .modal-result {
+    margin-top: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .modal-result .close-link {
+    display: block;
+    margin-top: 12px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  .result {
+    margin-top: 18px;
+    border-radius: 10px;
+    padding: 16px;
+    border: 1px solid var(--line);
+    background: var(--neutral-bg);
+  }
+  .result.safe { background: var(--safe-bg); border-color: var(--safe-border); }
+  .result.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .result.ask  { background: #FFF6E8; border-color: #C97A3D; }
+  .result .ask-head { color: #8A4B1E; }
+
+  /* Kandidaten bewusst neutral: keine Signalfarbe, keine Hervorhebung,
+     damit niemand zu einer Auswahl hingelenkt wird. */
+  .kandidaten-block { margin-top: 12px; }
+  .kandidaten-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .kandidat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 10px 12px;
+    margin-bottom: 7px;
+  }
+  .kandidat-titel {
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.35;
+  }
+  .kandidat-meta {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 3px;
+    line-height: 1.45;
+  }
+
+  .result-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14.5px;
+    margin-bottom: 6px;
+  }
+  .result.safe .result-head { color: var(--safe-text); }
+  .result.warn .result-head { color: var(--warn-text); }
+
+  .result p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; }
+  .result .meta { font-size: 12px; color: var(--muted); }
+
+  .clinic-btn {
+    margin-top: 10px;
+    display: inline-block;
+    font-size: 12.5px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    text-decoration: none;
+    background: #fff;
+  }
+
+  .product-card {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 14px;
+    margin-bottom: 10px;
+    background: var(--surface);
+  }
+  .product-card.warn { border-color: var(--warn-border); background: var(--warn-bg); }
+  .product-card.safe { border-color: var(--safe-border); background: var(--safe-bg); }
+
+  .product-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .product-name { font-size: 14px; font-weight: 500; }
+  .product-meta { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .badge {
+    font-size: 11px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .badge.safe { background: var(--safe-border); color: #fff; }
+  .badge.warn { background: var(--warn-border); color: #fff; }
+  .badge.neutral { background: var(--muted); color: #fff; }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 10px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .backend-status {
+    font-size: 11.5px;
+    margin: -8px 0 16px;
+    padding-left: 2px;
+  }
+  .backend-status.ok { color: var(--safe-border); }
+  .backend-status.error { color: var(--warn-border); }
+  .backend-status.pending { color: var(--muted); }
+
+  .loading-hint {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 10px 0;
+  }
+
+  nav.tabbar {
+    display: flex;
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+  nav.tabbar button {
+    flex: 1;
+    padding: 12px 2px 9px;
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-align: center;
+  }
+  nav.tabbar button.active { color: var(--primary); }
+  nav.tabbar svg { width: 18px; height: 18px; }
+
+  .devtools {
+    margin-top: 26px;
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .devtools p {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin: 0 0 10px;
+    line-height: 1.5;
+  }
+  .devtools button {
+    width: 100%;
+    padding: 9px;
+    background: none;
+    border: 1px solid var(--muted);
+    color: var(--muted);
+    border-radius: 7px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+
+  .guide-section {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .guide-section summary {
+    padding: 13px 14px;
+    font-family: 'Lora', serif;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    list-style: none;
+    position: relative;
+    padding-right: 30px;
+  }
+  .guide-section summary::-webkit-details-marker { display: none; }
+  .guide-section summary::after {
+    content: '+';
+    position: absolute;
+    right: 14px;
+    top: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 17px;
+    color: var(--primary);
+  }
+  .guide-section[open] summary::after { content: '–'; }
+  .guide-body {
+    padding: 0 16px 15px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .guide-body p { margin: 0; }
+  .guide-body ul { margin: 0; padding-left: 18px; }
+  .guide-body li { margin-bottom: 7px; }
+</style>
 </head>
 <body>
 
-<header class="topbar">
-  <div class="wrap">
-    <span class="logotype"><span class="logomark">✛</span>Angelus Vit</span>
-    <span class="status">Prototyp · Projektstand September 2026</span>
+<div class="phone">
+  <header>
+    <div class="logotype">Angelus Vit</div>
+    <div class="tagline">Lebensmittel-Sicherheit für Risikopatient:innen</div>
+  </header>
+
+  <div id="banner"></div>
+
+  <!-- ABFRAGE NACH KLICK AUF DIE BENACHRICHTIGUNG -->
+  <div class="modal-overlay" id="consumed-modal">
+    <div class="modal-box">
+      <div class="modal-title">Rückruf betrifft dein Produkt</div>
+      <p class="modal-product" id="consumed-product">–</p>
+      <p class="modal-question">Hast du dieses Produkt verzehrt?</p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-yes" onclick="answerConsumed(true)">Ja</button>
+        <button class="modal-btn modal-btn-no" onclick="answerConsumed(false)">Nein</button>
+      </div>
+      <div id="consumed-result" class="modal-result"></div>
+    </div>
   </div>
-</header>
 
-<main>
-  <div class="wrap">
+  <div class="scanner-overlay" id="scanner-overlay">
+    <div class="scanner-header">
+      <span>Barcode scannen</span>
+      <button class="scanner-close" onclick="closeScanner()">✕</button>
+    </div>
+    <div id="video-container" style="flex:1; background:#000; display:flex;"></div>
+    <p class="scanner-hint">Barcode waagerecht und flach halten, Handy ca. 10–15 cm entfernt, gute Beleuchtung, kurz stillhalten.</p>
+    <div id="scanner-error" class="scanner-error"></div>
+    <input type="file" id="photo-input" accept="image/*" capture="environment" style="display:none;" onchange="decodeFromPhoto(event)">
+    <button class="scanner-manual-btn" onclick="restartScanner()">🔄 Kamera neu starten</button>
+    <button class="scanner-manual-btn" onclick="document.getElementById('photo-input').click()">📸 Stattdessen Foto vom Barcode machen</button>
+    <button class="scanner-manual-btn" onclick="closeScanner()">Manuell eingeben</button>
+  </div>
 
-    <div class="hero">
-      <h1>Rückrufe erreichen die Menschen nicht, für die sie gefährlich sind.</h1>
-      <p class="lead">
-        Angelus Vit warnt immungeschwächte Patientinnen und Patienten, wenn ein
-        Lebensmittel zurückgerufen wird, das sie bereits gekauft haben. Auch Tage
-        nach dem Einkauf.
-      </p>
+  <main>
+    <!-- SCAN VIEW -->
+    <div class="view active" id="view-scan">
+      <h2 class="section-title">Produkt prüfen</h2>
+      <p class="section-sub">Barcode scannen und das Mindesthaltbarkeitsdatum von der Packung eintragen. Der Abgleich läuft live gegen Open Food Facts und die aktuellen Rückrufe von lebensmittelwarnung.de.</p>
+
+      <!-- Der geführte Durchlauf für zuhause: ganzer Einkauf am Stück, die
+           Seite sagt bei jedem Produkt an, was zu scannen ist. Das Formular
+           darunter bleibt für den Einzelfall. -->
+      <button type="button" class="primary" style="margin-bottom:6px;"
+              onclick="location.href='erfassen.html'">🧺 Ganzen Einkauf erfassen</button>
+      <p class="section-sub" style="margin-top:0;">Geführter Scanner: Barcode, dann Datum, dann nächstes Produkt. Für den Einkauf, der gerade auf dem Tisch steht.</p>
+
+      <h2 class="section-title" style="margin-top:22px;">Einzelnes Produkt</h2>
+
+      <div style="display:none;">
+        <label for="input-backend">Backend-Adresse</label>
+        <input type="text" id="input-backend" value="http://localhost:3001" onchange="onBackendChange()">
+        <div id="backend-status" class="backend-status">wird geprüft …</div>
+      </div>
+
+      <label for="input-barcode">Barcode (EAN, von der Verpackung)</label>
+      <input type="text" id="input-barcode" placeholder="z. B. 4311501867658">
+      <button type="button" class="button-secondary" onclick="openScanner()">📷 Kamera zum Scannen öffnen</button>
+
+      <label for="input-name">Bezeichnung</label>
+      <input type="text" id="input-name" placeholder="z. B. Kölln Zauberfleks Schoko">
+      <p class="section-sub" style="margin-top:-8px;">Wird nach dem Scan automatisch gefüllt. Ist das Produkt unbekannt, trag den Namen von der Packung ein.</p>
+
+      <!-- MHD vor der Charge, weil es das häufigere und besser lesbare Merkmal
+           ist: In den 223 amtlichen Meldungen nennen 204 ein MHD, aber nur 155
+           eine Chargennummer. Nach § 2 Los-Kennzeichnungs-Verordnung darf das
+           MHD die Losnummer sogar ersetzen – auf vielen Packungen steht dann
+           gar keine Charge, und wer danach sucht, sucht vergeblich. -->
+      <label for="input-mhd">Mindesthaltbarkeitsdatum (auf der Verpackung)</label>
+      <input type="text" id="input-mhd" inputmode="numeric" placeholder="z. B. 14.11.2026">
+
+      <label for="input-charge">Chargennummer, falls vorhanden</label>
+      <input type="text" id="input-charge" placeholder="z. B. L2456A">
+      <p class="section-sub" style="margin-top:-8px;">Steht meist neben dem MHD. Fehlt auf vielen Packungen – dann genügt das Datum.</p>
+
+      <button class="primary" onclick="checkProduct()">Prüfen</button>
+
+      <div id="result-slot"></div>
+
+      <div class="devtools">
+        <p>Hinweis: Da die Rückrufdaten jetzt echt sind, lässt sich eine nachträgliche Warnung nicht mehr künstlich auslösen. Stattdessen: Unter „Meine Produkte“ jederzeit alle gespeicherten Produkte erneut gegen den aktuellen Rückruf-Stand prüfen.</p>
+      </div>
     </div>
 
-    <hr class="rule">
+    <!-- PRODUCTS VIEW -->
+    <div class="view" id="view-products">
+      <h2 class="section-title">Meine Produkte</h2>
+      <p class="section-sub">Alle bisher geprüften Produkte. Ein erneuter Abgleich zeigt, ob eines davon inzwischen zurückgerufen wurde.</p>
+      <button class="primary" style="margin-bottom:10px;" onclick="enablePush()">🔔 Warnungen aktivieren</button>
+      <div id="push-status" class="backend-status"></div>
+      <button class="primary" style="margin-bottom:16px;" onclick="recheckAllProducts()">Alle erneut gegen aktuelle Rückrufe prüfen</button>
+      <div id="products-list"></div>
+    </div>
 
-    <section>
-      <div class="eyebrow">Das Problem</div>
-      <h2>Ein Rückruf ist für die meisten ein Ärgernis. Für manche eine Klinikeinweisung.</h2>
-      <div class="prose">
-        <p>
-          Nach einer Chemotherapie, nach einer Organtransplantation oder bei einer
-          Autoimmunerkrankung ist die körpereigene Abwehr geschwächt. Listerien oder
-          Salmonellen, die gesunde Menschen kaum bemerken, führen dann zu schweren
-          Infektionen.
-        </p>
-        <p>
-          Die Information selbst ist öffentlich. Bund und Länder veröffentlichen jeden
-          Rückruf auf lebensmittelwarnung.de, laufend mehrere hundert aktive Meldungen
-          allein für Lebensmittel. Nur schaut dort niemand täglich nach. Und wer im
-          Supermarkt steht, hat die Meldung von vorletzter Woche ohnehin nicht im Kopf.
-        </p>
+    <!-- RECALLS VIEW -->
+    <div class="view" id="view-recalls">
+      <h2 class="section-title">Alle Rückrufe</h2>
+      <p class="section-sub">Live geladen von lebensmittelwarnung.de (offizielle Rückruf-Feeds von Bund und Ländern).</p>
+      <div id="recalls-updated" class="backend-status"></div>
+      <div id="recalls-list"></div>
+      <div class="pagination" id="recalls-pagination" style="display:none;">
+        <button class="page-btn" id="recalls-prev" onclick="goToRecallsPage(currentRecallsPage - 1)">‹ Zurück</button>
+        <span class="page-indicator" id="recalls-page-indicator">Seite 1 von 1</span>
+        <button class="page-btn" id="recalls-next" onclick="goToRecallsPage(currentRecallsPage + 1)">Weiter ›</button>
+      </div>
+    </div>
+
+    <!-- GUIDE VIEW -->
+    <div class="view" id="view-guide">
+      <h2 class="section-title">Ernährungsratgeber</h2>
+      <p class="section-sub">Begleitende Orientierung für die Ernährung bei geschwächtem Immunsystem. Platzhaltertext für den Prototyp – in der echten App redaktionell mit der Partnerklinik erstellt und laufend aktualisiert.</p>
+
+      <!-- Schutzcheck: Empfindlichkeit.
+           Bewusst ohne Diagnoseabfrage. Die Auswahl bleibt in localStorage und
+           wird nicht an den Server geschickt – sonst wäre sie ein Rückschluss
+           auf den Gesundheitszustand und damit ein Gesundheitsdatum. -->
+      <div class="guide-section" style="padding:14px 16px;">
+        <strong style="display:block;margin-bottom:2px;">Schutzcheck</strong>
+        <p class="section-sub" style="margin:0 0 4px;">Bestimmt, wie streng Produkte beim Scannen bewertet werden. Es wird kein Grund und keine Diagnose abgefragt.</p>
+        <div id="schutzcheck-einstellung"></div>
       </div>
 
-      <div class="timeline">
-        <div class="tl-step">
-          <span class="tl-day">Samstag</span>
-          <span class="tl-what">Einkauf</span>
-          <span class="tl-note">Das Produkt landet im Kühlschrank. Zu diesem Zeitpunkt ist nichts bekannt.</span>
+      <details class="guide-section" open>
+        <summary>Warum gelten für dich andere Regeln?</summary>
+        <div class="guide-body">
+          <p>Eine Chemotherapie, eine Organtransplantation oder bestimmte Autoimmunerkrankungen können die Abwehrkräfte des Körpers deutlich schwächen. Keime, die für gesunde Menschen meist harmlos sind, können dann zu ernsthaften Infektionen führen. Die folgenden Empfehlungen senken dieses Risiko, ersetzen aber nicht das Gespräch mit deinem Behandlungsteam.</p>
         </div>
-        <div class="tl-step">
-          <span class="tl-day">Dienstag</span>
-          <span class="tl-what">Rückruf gemeldet</span>
-          <span class="tl-note">Der Hersteller ruft die Charge zurück, die Behörde veröffentlicht die Meldung.</span>
-        </div>
-        <div class="tl-step is-gap">
-          <span class="tl-day">Mittwoch</span>
-          <span class="tl-what">Niemand hat es erfahren</span>
-          <span class="tl-note">Das Produkt wird verzehrt. Die Warnung existiert, sie ist nur nie angekommen.</span>
-        </div>
-      </div>
-      <p class="tl-caption">
-        Diese Lücke zwischen Veröffentlichung und Betroffenen zu schließen, ist die
-        einzige Aufgabe von Angelus Vit.
-      </p>
-    </section>
+      </details>
 
-    <hr class="rule">
-
-    <section>
-      <div class="eyebrow">Wie es funktioniert</div>
-      <h2>Drei Schritte, von denen zwei ohne Zutun ablaufen.</h2>
-
-      <div class="steps">
-        <div class="step">
-          <div class="step-num">1</div>
-          <div>
-            <h3>Scannen</h3>
-            <p>
-              Barcode des Produkts mit der Handykamera erfassen, danach das
-              Mindesthaltbarkeitsdatum von der Verpackung. Das übernimmt auch die Tochter,
-              die für ihre Mutter einkauft.
-            </p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">2</div>
-          <div>
-            <h3>Hinterlegt lassen</h3>
-            <p>
-              Das Produkt wird nicht nur einmal geprüft, sondern bleibt gespeichert.
-              Jede neue Rückrufmeldung der Behörden wird automatisch gegen die
-              gespeicherten Einkäufe abgeglichen.
-            </p>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-num">3</div>
-          <div>
-            <h3>Gewarnt werden</h3>
-            <p>
-              Taucht das Produkt später in einem Rückruf auf, kommt die Warnung aufs
-              Handy, auch bei geschlossener App. Mit der Rückfrage, ob bereits verzehrt
-              wurde, und dem Hinweis, die behandelnde Klinik zu informieren.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <hr class="rule">
-
-    <section>
-      <div class="eyebrow">Datengrundlage</div>
-      <h2>Kein Produktkatalog ist je vollständig. Deshalb zwei Wege statt einem.</h2>
-      <div class="prose">
-        <p>
-          Jedes Jahr kommen rund 40.000 Lebensmittel neu in den deutschen Handel,
-          während etwa ebenso viele verschwinden. Jede Produktdatenbank läuft dieser
-          Bewegung hinterher, auch die kommerziellen.
-        </p>
-      </div>
-
-      <div class="figures">
-        <div class="figure">
-          <span class="fig-num">170.000</span>
-          <span class="fig-label">Lebensmittel sind auf dem deutschen Markt gleichzeitig verfügbar</span>
-          <span class="fig-src">Lebensmittelverband Deutschland</span>
-        </div>
-        <div class="figure">
-          <span class="fig-num">427.000</span>
-          <span class="fig-label">Einträge führt die genutzte offene Produktdatenbank für Deutschland</span>
-          <span class="fig-src">Open Food Facts, Stand September 2026 — Produktdaten
-            lizenziert unter ODbL 1.0</span>
-        </div>
-      </div>
-
-      <div class="prose" style="margin-top:20px;">
-        <p>
-          Die Zahl der Einträge übersteigt die Zahl der Produkte am Markt, weil auch
-          ausgelaufene und importierte Ware erfasst ist. Vollständigkeit folgt daraus
-          nicht: Manche Einträge bestehen nur aus einem Barcode ohne verwertbaren
-          Produktnamen.
-        </p>
-        <p>
-          Darum erkennt Angelus Vit ein betroffenes Produkt auf zwei voneinander
-          unabhängigen Wegen. Der erste führt über den Barcode und den Produktnamen.
-          Der zweite über die Chargennummer, die in der amtlichen Rückrufmeldung ohnehin
-          steht und keinen Datenbankeintrag voraussetzt. Fällt der erste Weg aus, trägt
-          der zweite.
-        </p>
-      </div>
-    </section>
-
-    <hr class="rule">
-
-    <section>
-      <div class="eyebrow">Projektstand</div>
-      <h2>Ein funktionsfähiger Prototyp. Kein fertiges Produkt.</h2>
-      <div class="prose">
-        <p>
-          Der Prototyp läuft, arbeitet mit den echten amtlichen Rückrufdaten und lässt
-          sich vorführen. Was noch fehlt, steht hier genauso offen wie das, was schon
-          funktioniert.
-        </p>
-      </div>
-
-      <div class="status-grid">
-        <div class="status-col col-works">
-          <h3>Funktioniert bereits</h3>
+      <details class="guide-section">
+        <summary>Lebensmittel, die du meiden solltest</summary>
+        <div class="guide-body">
           <ul>
-            <li>Barcode-Erfassung über die Handykamera</li>
-            <li>Abgleich gegen die amtlichen Rückruf-Feeds von Bund und Ländern</li>
-            <li>Zweiter Erkennungsweg über die Chargennummer, ohne Produktdatenbank</li>
-            <li>Gespeicherte Einkäufe mit laufendem Abgleich</li>
-            <li>Push-Warnung bei geschlossener App</li>
-            <li>Ernährungshinweise für geschwächte Abwehr</li>
+            <li>Rohes oder nicht durchgegartes Fleisch, Fisch und Meeresfrüchte (auch Sushi, Tatar, Carpaccio)</li>
+            <li>Rohmilch und Rohmilchprodukte, Weichkäse mit Schimmelrinde (z. B. Camembert, Brie)</li>
+            <li>Rohe oder weich gekochte Eier, hausgemachte Produkte mit rohem Ei (Tiramisu, manche Mayonnaisen)</li>
+            <li>Rohe Sprossen und Keimlinge (z. B. Alfalfa, Sojasprossen)</li>
+            <li>Aufgeschnittene Wurst- und Fleischwaren an der Kühltheke, wenn nicht frisch erhitzt</li>
+            <li>Speisen von Buffets, Salatbars oder Frischetheken mit langer Standzeit</li>
           </ul>
         </div>
-        <div class="status-col col-open">
-          <h3>Offen und ungeklärt</h3>
+      </details>
+
+      <details class="guide-section">
+        <summary>Sichere Zubereitung zu Hause</summary>
+        <div class="guide-body">
           <ul>
-            <li>Trefferquote beider Erkennungswege ist noch nicht gemessen</li>
-            <li>Nutzungsrechte an den Rückrufdaten sind zu klären</li>
-            <li>Kein klinischer Partner, keine medizinische Freigabe der Inhalte</li>
-            <li>Datenschutzkonzept für den Pilotbetrieb steht aus</li>
+            <li>Fleisch, Fisch und Geflügel vollständig durchgaren, Kerntemperatur beachten</li>
+            <li>Getrennte Schneidebretter und Messer für rohes Fleisch und für Gemüse verwenden</li>
+            <li>Obst und Gemüse auch bei Bio-Ware gründlich unter fließendem Wasser waschen</li>
+            <li>Hände vor dem Kochen und nach dem Kontakt mit rohem Fleisch gründlich waschen</li>
+            <li>Reste zügig kühlen und innerhalb von 24 Stunden aufbrauchen oder einfrieren</li>
           </ul>
         </div>
-      </div>
-    </section>
+      </details>
 
-    <hr class="rule">
-
-    <section>
-      <div class="eyebrow">Gesucht</div>
-      <h2>Wer jetzt gebraucht wird.</h2>
-
-      <div class="seeking">
-        <div class="seek">
-          <h3>Kliniken und Ambulanzen</h3>
-          <p>
-            Onkologie, Transplantationsmedizin, Immunologie. Die entscheidende Frage
-            zuerst: Taucht dieses Problem im Versorgungsalltag überhaupt auf? Ein
-            Gespräch von zwanzig Minuten genügt für den Anfang.
-          </p>
+      <details class="guide-section">
+        <summary>Einkaufen und Lagern</summary>
+        <div class="guide-body">
+          <ul>
+            <li>Mindesthaltbarkeits- und Verbrauchsdatum konsequent prüfen, auch bei bereits geöffneten Packungen</li>
+            <li>Kühlkette einhalten: gekühlte und tiefgekühlte Ware als Letztes einkaufen und zügig nach Hause bringen</li>
+            <li>Dosen mit Beulen, Rost oder aufgewölbtem Deckel nicht verwenden</li>
+            <li>Kühlschrank regelmäßig reinigen, Temperatur unter 5 °C halten</li>
+          </ul>
         </div>
-        <div class="seek">
-          <h3>Medizinische Begleitung</h3>
-          <p>
-            Fachliche Einordnung der Warnlogik und Freigabe der Ernährungshinweise, die
-            im Prototyp bisher Platzhalter sind.
-          </p>
+      </details>
+
+      <details class="guide-section">
+        <summary>Wann du dich sofort melden solltest</summary>
+        <div class="guide-body">
+          <p>Kontaktiere dein Behandlungsteam zeitnah bei Fieber, Schüttelfrost, anhaltendem Durchfall, Erbrechen oder starkem Unwohlsein nach dem Essen – insbesondere, wenn ein verzehrtes Produkt in dieser App als zurückgerufen markiert wurde. Warte im Zweifel nicht ab, sondern rufe vorher an.</p>
         </div>
-        <div class="seek">
-          <h3>Technische Umsetzung</h3>
-          <p>
-            Entwicklung und Verantwortung für den Schritt vom Prototyp in einen
-            Pilotbetrieb mit echten Patientendaten.
-          </p>
-        </div>
-      </div>
-    </section>
+      </details>
+    </div>
+  </main>
 
-    <hr class="rule">
+  <nav class="tabbar">
+    <button class="active" id="tab-scan" onclick="switchTab('scan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V4h3M21 7V4h-3M3 17v3h3M21 17v3h-3M6 9v6M9 9v6M12 9v6M16 9v6M19 9v6"/></svg>
+      Scannen
+    </button>
+    <button id="tab-products" onclick="switchTab('products')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      Meine Produkte
+    </button>
+    <button id="tab-recalls" onclick="switchTab('recalls')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3 2 20h20L12 3Z M12 9v5 M12 17h.01"/></svg>
+      Alle Rückrufe
+    </button>
+    <button id="tab-guide" onclick="switchTab('guide')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15Z"/></svg>
+      Guide
+    </button>
+  </nav>
+</div>
 
-    <section>
-      <div class="eyebrow">Kontakt</div>
-      <h2>Der Prototyp lässt sich in zehn Minuten zeigen.</h2>
+<!-- Schutzcheck: Bewertung der Vorsichtsstufe. Bringt sein eigenes Styling mit
+     und lädt die Regeltabelle (regeln.json) selbst nach. Muss vor dem
+     Hauptskript stehen, damit window.Schutzcheck dort verfügbar ist. -->
+<script src="schutzcheck.js"></script>
 
-      <div class="contact">
-        <div class="mailrow">
-          <a class="mail" id="mail" href="mailto:kontakt@angelusvit.de">kontakt@angelusvit.de</a>
-          <button class="copy-btn" id="copy" type="button">Adresse kopieren</button>
-        </div>
-        <p>
-          Für eine Vorführung genügt eine kurze Nachricht. Rückfragen zur Datenlage, zur
-          Technik oder zum geplanten Weg in die Versorgung sind ausdrücklich willkommen.
-        </p>
-      </div>
-    </section>
-
-  </div>
-</main>
-
-<footer>
-  <div class="wrap foot-grid">
-    <p class="disclaimer">
-      Angelus Vit ist kein Medizinprodukt und ersetzt keine ärztliche Beratung. Der
-      Prototyp dient der Erprobung und ist nicht für den Einsatz in der Patientenversorgung
-      bestimmt. Rückrufmeldungen stammen aus den öffentlichen Veröffentlichungen von
-      lebensmittelwarnung.de, betrieben vom Bundesamt für Verbraucherschutz und
-      Lebensmittelsicherheit gemeinsam mit den Bundesländern. Angelus Vit steht in keiner
-      Verbindung zu dieser Stelle.
-    </p>
-    <nav class="foot-links">
-      <a href="impressum.html">Impressum</a>
-      <a href="datenschutz.html">Datenschutz</a>
-      <a href="mailto:kontakt@angelusvit.de">kontakt@angelusvit.de</a>
-    </nav>
-  </div>
-</footer>
-
+<script type="module">
+  // Stärkere Erkennungs-Engine: ZXing-C++ als WebAssembly, eingebunden über
+  // die BarcodeDetector-Polyfill. Deutlich treffsicherer bei 1D-Barcodes (EAN)
+  // als die reine JavaScript-Portierung.
+  import { BarcodeDetector } from "https://fastly.jsdelivr.net/npm/barcode-detector@2/dist/es/pure.min.js";
+  window.__BarcodeDetector = BarcodeDetector;
+  window.dispatchEvent(new Event('barcode-engine-ready'));
+</script>
 <script>
-  (function () {
-    var btn = document.getElementById('copy');
-    var mail = document.getElementById('mail');
-    if (!btn || !mail) return;
+  // ---------------------------------------------------------------------
+  // Kamera-Scanner
+  // Kamera-Stream wird bewusst selbst verwaltet und das <video>-Element bei
+  // jedem Öffnen neu erzeugt – sonst blockiert iOS nach ein paar Durchläufen.
+  // ---------------------------------------------------------------------
+  const BARCODE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf'];
 
-    btn.addEventListener('click', function () {
-      var text = mail.textContent.trim();
-      var done = function () {
-        btn.textContent = 'Kopiert';
-        setTimeout(function () { btn.textContent = 'Adresse kopieren'; }, 2000);
-      };
-      var fallback = function () {
-        // Ohne Zwischenablage-Rechte bleibt nur, die Adresse zu markieren -
-        // sie steht ohnehin sichtbar daneben.
-        try {
-          var range = document.createRange();
-          range.selectNodeContents(mail);
-          var sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-          btn.textContent = 'Markiert, bitte kopieren';
-          setTimeout(function () { btn.textContent = 'Adresse kopieren'; }, 2500);
-        } catch (e) { /* nichts zu tun */ }
-      };
+  let currentStream = null;
+  let scanning = false;
+  let scannerStarting = false;
 
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done, fallback);
+  function getDetectorClass() {
+    return window.BarcodeDetector || window.__BarcodeDetector || null;
+  }
+
+  async function waitForEngine(timeoutMs = 8000) {
+    if (getDetectorClass()) return true;
+    return new Promise(resolve => {
+      const done = () => resolve(!!getDetectorClass());
+      window.addEventListener('barcode-engine-ready', done, { once: true });
+      setTimeout(done, timeoutMs);
+    });
+  }
+
+  async function openScanner() {
+    if (scannerStarting || currentStream) return;
+    scannerStarting = true;
+
+    const overlay = document.getElementById('scanner-overlay');
+    const errorEl = document.getElementById('scanner-error');
+    const container = document.getElementById('video-container');
+    overlay.style.display = 'flex';
+    errorEl.textContent = 'Kamera wird gestartet …';
+
+    try {
+      const ready = await waitForEngine();
+      if (!ready) throw new Error('Erkennungs-Engine konnte nicht geladen werden');
+
+      // Wichtig für iOS: bei JEDEM Öffnen ein frisches <video>-Element erzeugen.
+      container.innerHTML = '';
+      const video = document.createElement('video');
+      video.setAttribute('playsinline', '');
+      video.muted = true;
+      container.appendChild(video);
+
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
+        },
+        audio: false
+      });
+
+      video.srcObject = currentStream;
+      await video.play();
+
+      errorEl.textContent = '';
+      scanning = true;
+      runDetectionLoop(video);
+    } catch (err) {
+      console.error('Kamera-Start fehlgeschlagen:', err);
+      errorEl.textContent =
+        'Kamera nicht verfügbar (' + (err?.name || err?.message || 'Fehler') + '). Foto-Button nutzen oder manuell eingeben.';
+      releaseCamera();
+    } finally {
+      scannerStarting = false;
+    }
+  }
+
+  async function runDetectionLoop(video) {
+    const Detector = getDetectorClass();
+    const detector = new Detector({ formats: BARCODE_FORMATS });
+
+    while (scanning && currentStream) {
+      try {
+        if (video.readyState >= 2) {
+          const codes = await detector.detect(video);
+          if (codes && codes.length && codes[0].rawValue) {
+            onScanSuccess(codes[0].rawValue);
+            return;
+          }
+        }
+      } catch (e) {
+        // Einzelbild nicht auswertbar – weiter versuchen
+      }
+      await new Promise(r => setTimeout(r, 120));
+    }
+  }
+
+  // Fallback: Foto mit der nativen Kamera aufnehmen und daraus dekodieren.
+  async function decodeFromPhoto(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    const errorEl = document.getElementById('scanner-error');
+    errorEl.textContent = 'Foto wird ausgewertet …';
+
+    try {
+      const ready = await waitForEngine();
+      if (!ready) throw new Error('Engine nicht geladen');
+
+      const bitmap = await createImageBitmap(file);
+      const Detector = getDetectorClass();
+      const detector = new Detector({ formats: BARCODE_FORMATS });
+      const codes = await detector.detect(bitmap);
+      if (bitmap.close) bitmap.close();
+
+      if (codes && codes.length && codes[0].rawValue) {
+        onScanSuccess(codes[0].rawValue);
       } else {
-        fallback();
+        errorEl.textContent = 'Kein Barcode im Foto erkannt – Barcode formatfüllend und scharf fotografieren.';
+      }
+    } catch (err) {
+      console.error('Foto-Auswertung fehlgeschlagen:', err);
+      errorEl.textContent = 'Foto konnte nicht ausgewertet werden (' + (err?.message || 'Fehler') + ').';
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  function onScanSuccess(decodedText) {
+    document.getElementById('input-barcode').value = decodedText;
+    // Bezeichnung des vorherigen Produkts nicht stehen lassen – sie würde
+    // sonst fälschlich auf den neuen Barcode angewendet.
+    document.getElementById('input-name').value = '';
+    closeScanner();
+    document.getElementById('input-charge').focus();
+  }
+
+  function releaseCamera() {
+    scanning = false;
+
+    if (currentStream) {
+      currentStream.getTracks().forEach(t => {
+        try { t.stop(); } catch (e) {}
+      });
+    }
+    currentStream = null;
+
+    // Video-Element vollständig abbauen (iOS gibt die Kamera sonst nicht frei)
+    const container = document.getElementById('video-container');
+    if (container) {
+      container.querySelectorAll('video').forEach(v => {
+        try {
+          const s = v.srcObject;
+          if (s && s.getTracks) s.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+          v.pause();
+          v.srcObject = null;
+          v.removeAttribute('src');
+          v.load();
+        } catch (e) {}
+      });
+      container.innerHTML = '';
+    }
+  }
+
+  // Sicherheitsnetz: Kamera freigeben, wenn die App in den Hintergrund geht
+  // oder die Seite verlassen wird.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && currentStream) closeScanner();
+  });
+  window.addEventListener('pagehide', () => {
+    if (currentStream) releaseCamera();
+  });
+
+  function closeScanner() {
+    document.getElementById('scanner-overlay').style.display = 'none';
+    releaseCamera();
+  }
+
+  // Kamera hart neu starten (falls sie doch mal klemmt)
+  async function restartScanner() {
+    const errorEl = document.getElementById('scanner-error');
+    errorEl.textContent = 'Kamera wird neu gestartet …';
+    releaseCamera();
+    await new Promise(r => setTimeout(r, 400));
+    scannerStarting = false;
+    await openScanner();
+  }
+
+  // Backend-Adresse finden. Wird die Seite vom Server selbst ausgeliefert,
+  // ist dessen Adresse die richtige. Wird die Datei dagegen einzeln geöffnet
+  // (Vorschau, lokale Datei), zeigt die Herkunft ins Leere – dann greift die
+  // fest hinterlegte Adresse.
+  const BACKEND_FALLBACK = 'https://angelus-vit-backend.onrender.com';
+
+  function backendKandidaten() {
+    const liste = [];
+    if (window.location.protocol !== 'file:' && window.location.origin) {
+      liste.push(window.location.origin.replace(/\/$/, ''));
+    }
+    if (!liste.includes(BACKEND_FALLBACK)) liste.push(BACKEND_FALLBACK);
+    return liste;
+  }
+
+  // ---- App-Zustand ----
+  let apiBase = backendKandidaten()[0];
+  document.getElementById('input-backend').value = apiBase;
+  let products = []; // { id, barcode, name, charge, status, date, treffer }
+
+  // ---------------------------------------------------------------------
+  // Geräte-ID: identifiziert dieses Gerät gegenüber dem Server, damit er
+  // weiß, wem eine Warnung geschickt werden muss.
+  // ---------------------------------------------------------------------
+  function getDeviceId() {
+    let id = null;
+    try { id = localStorage.getItem('angelus-device-id'); } catch (e) {}
+    if (!id) {
+      id = 'dev-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      try { localStorage.setItem('angelus-device-id', id); } catch (e) {}
+    }
+    return id;
+  }
+  const deviceId = getDeviceId();
+
+  // ---------------------------------------------------------------------
+  // Push-Benachrichtigungen
+  // ---------------------------------------------------------------------
+  function urlBase64ToUint8Array(base64String) {
+    const clean = String(base64String).trim().replace(/\s/g, '');
+    const padding = '='.repeat((4 - (clean.length % 4)) % 4);
+    const base64 = (clean + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function enablePush() {
+    const statusEl = document.getElementById('push-status');
+    const istInstalliert = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      statusEl.className = 'backend-status error';
+      statusEl.textContent = istInstalliert
+        ? 'Push wird von diesem Browser nicht unterstützt.'
+        : 'Auf dem iPhone nur möglich, wenn die App über „Teilen → Zum Home-Bildschirm“ installiert ist.';
+      return;
+    }
+
+    statusEl.className = 'backend-status pending';
+    let schritt = 'Start';
+
+    try {
+      schritt = 'Service Worker registrieren';
+      statusEl.textContent = 'Schritt 1/5: ' + schritt + ' …';
+      const reg = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      schritt = 'Berechtigung anfragen';
+      statusEl.textContent = 'Schritt 2/5: ' + schritt + ' …';
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        statusEl.className = 'backend-status error';
+        statusEl.textContent = 'Benachrichtigungen wurden abgelehnt.';
+        return;
+      }
+
+      schritt = 'Schlüssel vom Server holen';
+      statusEl.textContent = 'Schritt 3/5: ' + schritt + ' …';
+      const keyRes = await fetch(`${apiBase}/api/push/key`);
+      if (!keyRes.ok) throw new Error('Server antwortete mit Status ' + keyRes.status);
+      const keyData = await keyRes.json();
+      const publicKey = keyData && keyData.publicKey ? String(keyData.publicKey).trim() : '';
+      if (!publicKey) throw new Error('Kein Schlüssel vom Server erhalten – läuft die neue server.js?');
+
+      schritt = 'Abo anlegen';
+      statusEl.textContent = 'Schritt 4/5: ' + schritt + ' …';
+
+      // Altes Abo verwerfen: Der Server erzeugt bei jedem Neustart neue
+      // Schlüssel, ein altes Abo passt dann nicht mehr dazu.
+      const vorhandenes = await reg.pushManager.getSubscription();
+      if (vorhandenes) {
+        try { await vorhandenes.unsubscribe(); } catch (e) {}
+      }
+
+      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+
+      schritt = 'Abo an Server senden';
+      statusEl.textContent = 'Schritt 5/5: ' + schritt + ' …';
+      const saveRes = await fetch(`${apiBase}/api/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, subscription: sub })
+      });
+      if (!saveRes.ok) throw new Error('Server lehnte das Abo ab (Status ' + saveRes.status + ')');
+
+      statusEl.className = 'backend-status ok';
+      statusEl.textContent = 'Warnungen aktiv – du wirst bei Rückrufen benachrichtigt.';
+    } catch (err) {
+      console.error('Push-Einrichtung fehlgeschlagen bei „' + schritt + '“:', err);
+      statusEl.className = 'backend-status error';
+      statusEl.textContent =
+        'Fehlgeschlagen bei „' + schritt + '“: ' + (err?.name || '') + ' ' + (err?.message || 'unbekannter Fehler');
+    }
+  }
+
+  // Einkauf serverseitig speichern, damit er auch bei geschlossener App
+  // gegen neue Rückrufe geprüft werden kann.
+  async function savePurchaseToServer(entry) {
+    try {
+      const res = await fetch(`${apiBase}/api/purchases`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, ...entry })
+      });
+      const data = await res.json();
+      return data.purchase ? data.purchase.id : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Test: gespeichertes Produkt zum Rückruf erklären und Push auslösen
+  const TEST_VERZOEGERUNG_SEK = 30;
+
+  async function simulateRecall(serverId) {
+    if (!serverId) {
+      showBanner('Dieser Eintrag ist nicht auf dem Server gespeichert.', true);
+      return;
+    }
+    showBanner(`Testrückruf läuft in ${TEST_VERZOEGERUNG_SEK} Sekunden – App jetzt schließen!`, true);
+    try {
+      const res = await fetch(`${apiBase}/api/test/recall`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId,
+          purchaseId: serverId,
+          verzoegerungSekunden: TEST_VERZOEGERUNG_SEK
+        })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showBanner(
+          `Testrückruf ist scharf gestellt. Schließe die App jetzt – in ${TEST_VERZOEGERUNG_SEK} Sekunden kommt die Benachrichtigung.`
+        );
+      } else {
+        showBanner('Simulation fehlgeschlagen: ' + (data.error || 'Fehler'), true);
+      }
+    } catch (err) {
+      showBanner('Simulation fehlgeschlagen.', true);
+    }
+  }
+  let nextId = 1;
+
+  // ---------------------------------------------------------------------
+  // Backend-Verbindung
+  // ---------------------------------------------------------------------
+  async function checkBackend() {
+    const statusEl = document.getElementById('backend-status');
+    statusEl.className = 'backend-status pending';
+    statusEl.textContent = 'Verbindung wird geprüft …';
+
+    // Der Reihe nach probieren: erst die Herkunft der Seite, dann die
+    // hinterlegte Adresse. Die erste, die antwortet, wird übernommen.
+    for (const kandidat of backendKandidaten()) {
+      try {
+        const res = await fetch(`${kandidat}/api/status`);
+        if (!res.ok) continue;
+        const data = await res.json();
+
+        apiBase = kandidat;
+        document.getElementById('input-backend').value = kandidat;
+
+        statusEl.className = 'backend-status ok';
+        statusEl.textContent = data.letzteAktualisierung
+          ? `Verbunden · ${data.anzahlRueckrufe} Rückrufe geladen (Stand ${new Date(data.letzteAktualisierung).toLocaleTimeString('de-DE')})`
+          : 'Verbunden · Rückrufe werden noch geladen …';
+        return true;
+      } catch (err) {
+        // nächste Adresse versuchen
+      }
+    }
+
+    statusEl.className = 'backend-status error';
+    statusEl.textContent = 'Backend nicht erreichbar. Schläft der Server gerade? Nach dem ersten Aufruf dauert der Start bis zu einer Minute.';
+    return false;
+  }
+
+  function onBackendChange() {
+    apiBase = document.getElementById('input-backend').value.replace(/\/$/, '');
+    checkBackend();
+    loadRecalls();
+  }
+
+  // ---------------------------------------------------------------------
+  // Produkt prüfen (POST /api/check)
+  // ---------------------------------------------------------------------
+  // Kandidatenliste – bewusst neutral dargestellt, ohne Hervorhebung,
+  // damit niemand zu einem Treffer hingelenkt wird.
+  // Zeigt zu jeder Meldung die Merkmale, mit denen sich die betroffene Ware
+  // eingrenzen lässt. Die Bundesländer dienen ausdrücklich NICHT zum
+  // Wegfiltern: Wer an einer Landesgrenze einkauft oder etwas mitgebracht
+  // bekommt, wäre sonst ungewarnt. Sie stehen da, damit der Mensch selbst
+  // einordnen kann.
+  function kandidatenListe(kandidaten) {
+    if (!kandidaten || !kandidaten.length) return '';
+    return kandidaten.map(k => {
+      const zeilen = [];
+      if (k.hersteller) zeilen.push('Hersteller: ' + k.hersteller);
+      if (k.packung)    zeilen.push('Packung: ' + k.packung);
+      if (k.mhd)        zeilen.push('MHD: ' + String(k.mhd).replace(/\s*\n\s*/g, ' / '));
+      if (k.chargen)    zeilen.push('Charge: ' + String(k.chargen).replace(/\s*\n\s*/g, ' / '));
+      if (k.laender && k.laender.length) {
+        zeilen.push(k.laender.length >= 16
+          ? 'Ausgeliefert: bundesweit'
+          : 'Ausgeliefert: ' + k.laender.join(', '));
+      }
+      if (k.grenztEin === false) {
+        zeilen.push('Keine Charge und kein MHD genannt – die gesamte Produktion ist betroffen.');
+      }
+      return `
+      <div class="kandidat">
+        <div class="kandidat-titel">${k.titel}</div>
+        <div class="kandidat-meta">${k.grund || 'Grund nicht angegeben'}</div>
+        ${zeilen.map(z => `<div class="kandidat-meta">${z}</div>`).join('')}
+      </div>`;
+    }).join('');
+  }
+
+  async function checkProduct() {
+    const barcode = document.getElementById('input-barcode').value.trim();
+    const charge = document.getElementById('input-charge').value.trim();
+    const mhd = document.getElementById('input-mhd').value.trim();
+    const bezeichnung = document.getElementById('input-name').value.trim();
+    const slot = document.getElementById('result-slot');
+
+    if (!barcode && !charge && !mhd && !bezeichnung) {
+      slot.innerHTML = '';
+      return;
+    }
+
+    slot.innerHTML = '<div class="loading-hint">Wird geprüft …</div>';
+
+    let data;
+    try {
+      const res = await fetch(`${apiBase}/api/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ barcode, charge, mhd, bezeichnung })
+      });
+      data = await res.json();
+    } catch (err) {
+      slot.innerHTML = `<div class="result">
+        <div class="result-head">Backend nicht erreichbar</div>
+        <p>Prüfe, ob der Server läuft und die Backend-Adresse oben stimmt.</p>
+      </div>`;
+      return;
+    }
+
+    const name = data.name || 'Unbekanntes Produkt';
+    // Namen aus der Datenbank ins Feld übernehmen, damit er sichtbar und
+    // korrigierbar ist.
+    if (data.name && !bezeichnung) {
+      document.getElementById('input-name').value = data.name;
+    }
+
+    let html;
+    let listenStatus;
+
+    const merkmal = [mhd && 'MHD ' + mhd, charge && 'Charge ' + charge]
+      .filter(Boolean).join(', ');
+
+    if (data.status === 'treffer_bestaetigt') {
+      const r = data.treffer;
+      listenStatus = 'warn';
+      // Nennt die Meldung weder Charge noch MHD, ist die ganze Produktion
+      // betroffen – dann gibt es nichts zu vergleichen und der Produktname
+      // allein ist bereits die Warnung.
+      html = `<div class="result warn">
+        <div class="result-head">Rückruf bestätigt</div>
+        <p><strong>${name}</strong>${merkmal ? ', ' + merkmal : ''}</p>
+        <p>${data.pauschal
+          ? 'Diese Meldung nennt weder Charge noch Mindesthaltbarkeitsdatum – betroffen ist die gesamte Produktion. Das Produkt ist damit unabhängig von der Packung betroffen.'
+          : 'Produktname und Angabe von der Verpackung stimmen mit einer aktiven Meldung überein.'}</p>
+        <p>Gemeldeter Grund: ${r.reason || 'keine Angabe'}</p>
+        <a class="clinic-btn" href="tel:+491234567890">Klinik anrufen</a>
+        <div class="meta">Gemeldet am ${r.published ? new Date(r.published).toLocaleDateString('de-DE') : '–'} · Quelle: lebensmittelwarnung.de</div>
+      </div>`;
+
+    } else if (data.status === 'charge_weicht_ab') {
+      listenStatus = 'safe';
+      html = `<div class="result safe">
+        <div class="result-head">Diese Packung ist nicht betroffen</div>
+        <p><strong>${name}</strong>${merkmal ? ', ' + merkmal : ''}</p>
+        <p>Es gibt Meldungen zu einem ähnlichen Produkt, aber keine nennt dieses Datum oder diese Charge. Vergleiche die Angaben unten noch einmal mit deiner Verpackung, wenn du unsicher bist.</p>
+        <div class="kandidaten-block">
+          <div class="kandidaten-label">Gemeldet sind:</div>
+          ${kandidatenListe(data.kandidaten)}
+        </div>
+      </div>`;
+
+    } else if (data.status === 'rueckfrage') {
+      listenStatus = 'unklar';
+      html = `<div class="result ask">
+        <div class="result-head ask-head">Könnte eines dieser Produkte sein</div>
+        <p><strong>${name}</strong></p>
+        <p>Um das zu entscheiden, wird das Mindesthaltbarkeitsdatum von der Verpackung gebraucht. Es steht meist auf dem Deckel oder der Unterseite.</p>
+        <div class="kandidaten-block">
+          ${kandidatenListe(data.kandidaten)}
+        </div>
+        <p style="margin-top:10px;">Trag das MHD oben ein und prüfe erneut. Eine Chargennummer hilft zusätzlich, fehlt aber auf vielen Packungen.</p>
+      </div>`;
+
+    } else if (data.status === 'nur_charge_hinweis') {
+      listenStatus = 'unklar';
+      html = `<div class="result ask">
+        <div class="result-head ask-head">Hinweis, noch keine Warnung</div>
+        <p>Diese Chargennummer taucht in einer Meldung auf. Chargennummern sind aber nicht herstellerübergreifend eindeutig, deshalb ist das allein kein Nachweis.</p>
+        <div class="kandidaten-block">
+          ${kandidatenListe(data.kandidaten)}
+        </div>
+        <p style="margin-top:10px;">Trag die Bezeichnung von der Packung oben ein, damit sich das klären lässt.</p>
+      </div>`;
+
+    } else if (data.status === 'name_noetig') {
+      listenStatus = 'unbekannt';
+      html = `<div class="result ask">
+        <div class="result-head ask-head">Produkt noch nicht bekannt</div>
+        <p>Zu diesem Barcode ist in den Produktdatenbanken nichts hinterlegt. Trag die Bezeichnung oben von der Packung ab, dann kann geprüft werden.</p>
+        <p style="font-size:12px; color:var(--muted);">Damit ist das Produkt auch für den späteren Abgleich erfasst.</p>
+      </div>`;
+
+    } else {
+      listenStatus = 'safe';
+      html = `<div class="result safe">
+        <div class="result-head">Kein Rückruf</div>
+        <p>${data.name ? '<strong>' + name + '</strong>' : 'Diese Chargennummer'}${charge ? ', Charge ' + charge : ''}</p>
+        <p>Es liegt aktuell keine passende Meldung vor.</p>
+      </div>`;
+    }
+
+    slot.innerHTML = html;
+
+    // Schutzcheck unter das Rückrufergebnis hängen. Die Bewertung passiert im
+    // Browser – der Server liefert nur die Produktfakten und die für alle
+    // gleiche Regeltabelle und erfährt die Empfindlichkeit nicht.
+    if (window.Schutzcheck) {
+      Schutzcheck.anzeigen(data.produkt, slot, apiBase);
+    }
+
+    // Ohne verwertbare Angaben nichts speichern.
+    if (data.status === 'name_noetig') return;
+
+    const eintrag = {
+      id: nextId++,
+      barcode: barcode || '–',
+      name,
+      charge: charge || '–',
+      mhd: mhd || '–',
+      status: listenStatus,
+      date: new Date().toLocaleDateString('de-DE'),
+      serverId: null
+    };
+    products.unshift(eintrag);
+    renderProducts();
+
+    // Serverseitig sichern (für Push-Abgleich im Hintergrund)
+    savePurchaseToServer({
+      barcode,
+      name,
+      charge,
+      mhd,
+      status: eintrag.status
+    }).then(serverId => {
+      if (serverId) {
+        eintrag.serverId = serverId;
+        renderProducts();
       }
     });
+  }
+
+  // ---------------------------------------------------------------------
+  // Alle gespeicherten Produkte erneut prüfen (nachträgliche Warnung)
+  // ---------------------------------------------------------------------
+  async function recheckAllProducts() {
+    if (!products.length) {
+      showBanner('Noch keine Produkte gespeichert – zuerst unter „Scannen“ etwas prüfen.', true);
+      return;
+    }
+    showBanner('Prüfe gespeicherte Produkte gegen den aktuellen Rückruf-Stand …', true);
+
+    let neueWarnungen = 0;
+    for (const p of products) {
+      try {
+        const res = await fetch(`${apiBase}/api/check`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            barcode: p.barcode === '–' ? '' : p.barcode,
+            charge: p.charge === '–' ? '' : p.charge,
+            mhd: (p.mhd && p.mhd !== '–') ? p.mhd : '',
+            bezeichnung: p.name && p.name !== 'Unbekanntes Produkt' ? p.name : ''
+          })
+        });
+        const data = await res.json();
+        const neuerStatus =
+          data.status === 'treffer_bestaetigt' ? 'warn'
+          : data.status === 'rueckfrage' || data.status === 'nur_charge_hinweis' ? 'unklar'
+          : data.status === 'name_noetig' ? 'unbekannt'
+          : 'safe';
+        if (p.status !== 'warn' && neuerStatus === 'warn') neueWarnungen++;
+        p.status = neuerStatus;
+      } catch (err) {
+        // Backend kurzzeitig nicht erreichbar – Produkt einfach überspringen
+      }
+    }
+    renderProducts();
+    if (neueWarnungen > 0) {
+      showBanner(`Nachträgliche Warnung: ${neueWarnungen} Produkt(e) sind jetzt als zurückgerufen markiert.`);
+    } else {
+      showBanner('Alle gespeicherten Produkte erneut geprüft – keine neuen Rückrufe gefunden.', true);
+    }
+  }
+
+  function renderProducts() {
+    const list = document.getElementById('products-list');
+    if (!products.length) {
+      list.innerHTML = '<div class="empty-state">Noch keine Produkte geprüft.<br>Wechsle zu „Scannen“, um zu starten.</div>';
+      return;
+    }
+    list.innerHTML = products.map(p => `
+      <div class="product-card ${p.status === 'safe' || p.status === 'warn' ? p.status : ''}">
+        <div class="product-top">
+          <div>
+            <div class="product-name">${p.name}</div>
+            <div class="product-meta">Charge ${p.charge} · geprüft am ${p.date}</div>
+          </div>
+          <span class="badge ${p.status === 'safe' || p.status === 'warn' ? p.status : 'neutral'}">
+            ${p.status === 'safe' ? 'Unbedenklich' : p.status === 'warn' ? 'Rückruf' : p.status === 'unbekannt' ? 'Unbekannt' : 'Unklar'}
+          </span>
+        </div>
+        ${p.status !== 'warn' && p.serverId ? `
+          <button class="button-secondary" style="margin:10px 0 0; font-size:11.5px; padding:7px;"
+                  onclick="simulateRecall(${p.serverId})">
+            🧪 Testfall: Rückruf in 30 Sek. auslösen
+          </button>` : ''}
+      </div>
+    `).join('');
+  }
+
+  // ---------------------------------------------------------------------
+  // Alle Rückrufe (GET /api/recalls) – Seitenprinzip, 10 pro Seite
+  // ---------------------------------------------------------------------
+  const RECALLS_PAGE_SIZE = 10;
+  let allRecalls = [];
+  let currentRecallsPage = 1;
+
+  async function loadRecalls() {
+    const list = document.getElementById('recalls-list');
+    const updatedEl = document.getElementById('recalls-updated');
+    const pagination = document.getElementById('recalls-pagination');
+    list.innerHTML = '<div class="loading-hint">Lade aktuelle Rückrufe …</div>';
+    pagination.style.display = 'none';
+
+    try {
+      const res = await fetch(`${apiBase}/api/recalls`);
+      const data = await res.json();
+
+      // Der Endpunkt hat zwei Formen: früher eine nackte Liste, heute ein
+      // Objekt { updated, count, recalls }. Beide werden akzeptiert, damit ein
+      // älteres Backend die Liste nicht stillschweigend leer erscheinen lässt.
+      const istListe = Array.isArray(data);
+      allRecalls = istListe ? data : (Array.isArray(data.recalls) ? data.recalls : []);
+      const stand = istListe ? null : data.updated;
+
+      updatedEl.className = 'backend-status ok';
+      updatedEl.textContent = stand
+        ? `Zuletzt aktualisiert: ${new Date(stand).toLocaleString('de-DE')} · ${allRecalls.length} Meldungen`
+        : `${allRecalls.length} Meldungen`;
+
+      if (!allRecalls.length) {
+        // Leer kann zwei Dinge heißen: wirklich keine Rückrufe, oder eine
+        // Antwort in einem Format, das hier nicht gelesen werden konnte.
+        const unerwartet = !istListe && !Array.isArray(data.recalls);
+        updatedEl.className = unerwartet ? 'backend-status error' : 'backend-status ok';
+        list.innerHTML = unerwartet
+          ? `<div class="empty-state">Das Backend hat geantwortet, aber in einem unerwarteten Format.
+               Prüfe, ob die aktuelle <code>server.js</code> auf Render liegt.</div>`
+          : '<div class="empty-state">Aktuell keine laufenden Lebensmittel-Rückrufe.</div>';
+        return;
+      }
+      renderRecallsPage(1);
+    } catch (err) {
+      updatedEl.className = 'backend-status error';
+      updatedEl.textContent = 'Backend nicht erreichbar.';
+      list.innerHTML = `<div class="empty-state">Keine Verbindung zum Backend (${err.message}).</div>`;
+    }
+  }
+
+  function renderRecallsPage(page) {
+    const list = document.getElementById('recalls-list');
+    const pagination = document.getElementById('recalls-pagination');
+    const totalPages = Math.max(1, Math.ceil(allRecalls.length / RECALLS_PAGE_SIZE));
+
+    currentRecallsPage = Math.min(Math.max(1, page), totalPages);
+    const start = (currentRecallsPage - 1) * RECALLS_PAGE_SIZE;
+    const items = allRecalls.slice(start, start + RECALLS_PAGE_SIZE);
+
+    list.innerHTML = items.map(r => `
+      <div class="product-card warn">
+        <div class="product-top">
+          <div>
+            <div class="product-name">${r.title}</div>
+            <div class="product-meta">${r.lotNumbers ? 'Charge(n) ' + r.lotNumbers + ' · ' : ''}${r.published ? new Date(r.published).toLocaleDateString('de-DE') : ''}</div>
+          </div>
+          <span class="badge warn">Rückruf</span>
+        </div>
+        <p style="margin:10px 0 0; font-size:12.5px; line-height:1.5;">${r.reason || ''}</p>
+      </div>
+    `).join('');
+
+    document.getElementById('recalls-page-indicator').textContent = `Seite ${currentRecallsPage} von ${totalPages}`;
+    document.getElementById('recalls-prev').disabled = currentRecallsPage <= 1;
+    document.getElementById('recalls-next').disabled = currentRecallsPage >= totalPages;
+    pagination.style.display = totalPages > 1 ? 'flex' : 'none';
+  }
+
+  function goToRecallsPage(page) {
+    renderRecallsPage(page);
+  }
+
+  function showBanner(text, muted) {
+    const banner = document.getElementById('banner');
+    banner.style.background = muted ? '#5B6B6E' : 'var(--warn-text)';
+    banner.innerHTML = `<strong>${muted ? 'Hinweis' : 'Neue Warnung'}</strong>${text}`;
+    banner.style.display = 'block';
+    clearTimeout(window._bannerTimeout);
+    window._bannerTimeout = setTimeout(() => banner.style.display = 'none', 6000);
+  }
+
+  function switchTab(name) {
+    document.getElementById('view-scan').classList.toggle('active', name === 'scan');
+    document.getElementById('view-products').classList.toggle('active', name === 'products');
+    document.getElementById('view-recalls').classList.toggle('active', name === 'recalls');
+    document.getElementById('view-guide').classList.toggle('active', name === 'guide');
+    document.getElementById('tab-scan').classList.toggle('active', name === 'scan');
+    document.getElementById('tab-products').classList.toggle('active', name === 'products');
+    document.getElementById('tab-recalls').classList.toggle('active', name === 'recalls');
+    document.getElementById('tab-guide').classList.toggle('active', name === 'guide');
+    if (name === 'recalls') loadRecalls();
+
+    if (name === 'scan') {
+      openScanner();
+    } else {
+      closeScanner();
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Abfrage nach Klick auf eine Rückruf-Benachrichtigung
+  // ---------------------------------------------------------------------
+  let aktuelleWarnungId = null;
+
+  function zeigeVerzehrAbfrage(purchaseIdStr, produktName) {
+    const id = Number(purchaseIdStr);
+    if (!id) return;
+    aktuelleWarnungId = id;
+
+    document.getElementById('consumed-product').textContent = produktName || 'Betroffenes Produkt';
+    document.getElementById('consumed-result').innerHTML = '';
+    document.querySelector('#consumed-modal .modal-actions').style.display = 'flex';
+    document.querySelector('#consumed-modal .modal-question').style.display = 'block';
+    document.getElementById('consumed-modal').classList.add('open');
+  }
+
+  function schliesseVerzehrAbfrage() {
+    document.getElementById('consumed-modal').classList.remove('open');
+    aktuelleWarnungId = null;
+  }
+
+  async function answerConsumed(verzehrt) {
+    const resultEl = document.getElementById('consumed-result');
+    document.querySelector('#consumed-modal .modal-actions').style.display = 'none';
+    document.querySelector('#consumed-modal .modal-question').style.display = 'none';
+
+    resultEl.innerHTML = verzehrt
+      ? `<div style="color:var(--warn-text); font-weight:500; margin-bottom:6px;">Bitte Klinik informieren</div>
+         <div>Melde dich zeitnah bei deinem Behandlungsteam – auch wenn du dich aktuell gut fühlst. Nicht ungeplant in die Notaufnahme fahren, sondern vorher anrufen.</div>
+         <a class="clinic-btn" style="margin-top:12px;" href="tel:+491234567890">Klinik anrufen</a>
+         <span class="close-link" onclick="schliesseVerzehrAbfrage()">Schließen</span>`
+      : `<div style="color:var(--safe-text); font-weight:500; margin-bottom:6px;">Gut – nicht verzehrt</div>
+         <div>Entsorge das Produkt und verzehre es auf keinen Fall mehr. Eine Rückgabe im Geschäft ist in der Regel auch ohne Kassenbon möglich.</div>
+         <span class="close-link" onclick="schliesseVerzehrAbfrage()">Schließen</span>`;
+
+    // Antwort auf dem Server festhalten
+    try {
+      await fetch(`${apiBase}/api/purchases/consumed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId, purchaseId: aktuelleWarnungId, verzehrt })
+      });
+    } catch (e) {
+      // Für den Ablauf unkritisch – Hinweis wird trotzdem angezeigt
+    }
+  }
+
+  // Fall 1: App wurde durch den Klick auf die Benachrichtigung neu geöffnet
+  function pruefeWarnungAusUrl(urlString) {
+    try {
+      const url = new URL(urlString || window.location.href, window.location.origin);
+      const warnung = url.searchParams.get('warnung');
+      const produkt = url.searchParams.get('produkt');
+      if (warnung) {
+        zeigeVerzehrAbfrage(warnung, produkt ? decodeURIComponent(produkt) : null);
+        // Parameter aus der Adresse entfernen, damit die Abfrage nicht
+        // bei jedem Neuladen wieder erscheint.
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (e) {}
+  }
+
+  // Fall 2: App lief bereits – der Service Worker meldet die Warnung
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'rueckruf-warnung') {
+        pruefeWarnungAusUrl(event.data.url);
+      }
+    });
+  }
+
+  renderProducts();
+  pruefeWarnungAusUrl();
+  document.getElementById('scanner-overlay').style.display = 'none';
+
+  // Erst die Backend-Adresse festlegen, dann Daten laden – sonst würden die
+  // Rückrufe noch von der falschen Adresse angefragt.
+  (async function start() {
+    // Auswahlfeld für die Empfindlichkeit im Ratgeber-Tab aufbauen.
+    if (window.Schutzcheck) {
+      Schutzcheck.renderEinstellung(document.getElementById('schutzcheck-einstellung'));
+    }
+    await checkBackend();
+    loadRecalls();
   })();
 </script>
 
