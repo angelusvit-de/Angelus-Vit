@@ -600,6 +600,15 @@
       <h2 class="section-title">Produkt prüfen</h2>
       <p class="section-sub">Barcode scannen und das Mindesthaltbarkeitsdatum von der Packung eintragen. Der Abgleich läuft live gegen Open Food Facts und die aktuellen Rückrufe von lebensmittelwarnung.de.</p>
 
+      <!-- Der geführte Durchlauf für zuhause: ganzer Einkauf am Stück, die
+           Seite sagt bei jedem Produkt an, was zu scannen ist. Das Formular
+           darunter bleibt für den Einzelfall. -->
+      <button type="button" class="primary" style="margin-bottom:6px;"
+              onclick="location.href='erfassen.html'">🧺 Ganzen Einkauf erfassen</button>
+      <p class="section-sub" style="margin-top:0;">Geführter Scanner: Barcode, dann Datum, dann nächstes Produkt. Für den Einkauf, der gerade auf dem Tisch steht.</p>
+
+      <h2 class="section-title" style="margin-top:22px;">Einzelnes Produkt</h2>
+
       <div style="display:none;">
         <label for="input-backend">Backend-Adresse</label>
         <input type="text" id="input-backend" value="http://localhost:3001" onchange="onBackendChange()">
